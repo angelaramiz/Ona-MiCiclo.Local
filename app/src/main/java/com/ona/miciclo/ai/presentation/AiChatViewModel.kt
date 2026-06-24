@@ -84,15 +84,16 @@ class AiChatViewModel @Inject constructor(
                     "La usuaria no tiene registros previos."
                 }
 
-                // Construcción de la consulta estructurada para la IA
+                // Construcción de la consulta estructurada con el template oficial de chat de Gemma
                 val systemPrompt = """
-                    [System]
+                    <start_of_turn>user
                     Eres Ona, la IA local (offline) de esta app de ciclo menstrual. Responde en español de manera empática, breve y educativa.
                     No estás conectada a internet, todos tus datos son 100% privados.
+                    
                     $promptContext
                     
-                    [Pregunta]
-                    $text
+                    Pregunta: $text<end_of_turn>
+                    <start_of_turn>model
                 """.trimIndent()
 
                 // Crear un mensaje vacío para el asistente
