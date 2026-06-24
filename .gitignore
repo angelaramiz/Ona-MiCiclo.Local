@@ -1,0 +1,47 @@
+# Built application files
+*.apk
+!release/*.apk
+*.aar
+*.ap_
+*.aab
+
+# Files for the ART/Dalvik VM
+*.dex
+
+# Java class files
+*.class
+
+# Generated files
+bin/
+gen/
+out/
+build/
+
+# Gradle files
+.gradle/
+# Allow committing gradle/wrapper/ files for other environments to build successfully
+
+# Local configuration file
+local.properties
+
+# Android Studio
+/.idea/
+*.iml
+*.iws
+.DS_Store
+
+# CRITICAL: Firebase config contains API keys — never commit
+google-services.json
+
+# Keystore files
+*.jks
+*.keystore
+
+# Exported encrypted data (user backups)
+*.ona_backup
+
+# Proguard
+proguard/
+
+# Log files
+*.log

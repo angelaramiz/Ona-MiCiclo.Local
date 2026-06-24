@@ -1,0 +1,240 @@
+package com.ona.miciclo.settings.presentation
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.DeleteForever
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Logout
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.ona.miciclo.core.ui.components.OnaButton
+import com.ona.miciclo.core.ui.components.OnaOutlinedButton
+import com.ona.miciclo.core.ui.components.OnaTopBar
+
+@Composable
+fun SettingsScreen(
+    viewModel: SettingsViewModel,
+    onSignedOut: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val uiState by viewModel.uiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showExportDialog by rememberSaveable { mutableStateOf(false) }
+    var exportPassword by rememberSaveable { mutableStateOf("") }
+
+    LaunchedEffect(uiState.isSignedOut) {
+        if (uiState.isSignedOut) {
+            onSignedOut()
+        }
+    }
+
+    LaunchedEffect(uiState.message) {
+        uiState.message?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearMessage()
+        }
+    }
+
+    LaunchedEffect(uiState.error) {
+        uiState.error?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearError()
+        }
+    }
+
+    Scaffold(
+        topBar = { OnaTopBar(title = "Configuración") },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
+    ) { padding ->
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp)
+                .verticalScroll(rememberScrollState())
+        ) {
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Cuenta
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Cuenta", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = viewModel.userEmail,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Datos
+            Text("Datos", style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OnaOutlinedButton(
+                text = "📥 Exportar datos (encriptados)",
+                onClick = { showExportDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OnaOutlinedButton(
+                text = "📤 Importar datos",
+                onClick = {
+                    // TODO: Abrir file picker con SAF
+                }
+            )
+
+            Spacer(modifier = Modifier.height(24.dp))
+            HorizontalDivider()
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Zona de peligro
+            Text(
+                "Zona de peligro",
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.error
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OnaOutlinedButton(
+                text = "🗑️ Eliminar todos mis datos",
+                onClick = { showDeleteDialog = true }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            OnaOutlinedButton(
+                text = "Cerrar sesión",
+                onClick = { viewModel.signOut() }
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Info de privacidad
+            Text(
+                text = "🔒 Tus datos se almacenan encriptados solo en este dispositivo. " +
+                        "Ona nunca envía datos de salud a ningún servidor.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
+                text = "Ona v1.0.0 — Fase 1\nHerramienta educativa, no dispositivo médico.",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
+            Spacer(modifier = Modifier.height(32.dp))
+        }
+    }
+
+    // Diálogo de confirmación de borrado
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("¿Eliminar todos los datos?") },
+            text = {
+                Text(
+                    "Esta acción es IRREVERSIBLE. Se eliminarán todos tus registros de ciclo, " +
+                            "síntomas y preferencias de este dispositivo. " +
+                            "Te recomendamos exportar tus datos antes."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAllData()
+                        showDeleteDialog = false
+                    }
+                ) {
+                    Text("Eliminar todo", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Diálogo de exportación
+    if (showExportDialog) {
+        AlertDialog(
+            onDismissRequest = { showExportDialog = false },
+            title = { Text("Exportar datos") },
+            text = {
+                Column {
+                    Text("Ingresa una contraseña maestra para encriptar el archivo de respaldo.")
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = exportPassword,
+                        onValueChange = { exportPassword = it },
+                        label = { Text("Contraseña (mín. 8 caracteres)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.exportData(exportPassword)
+                        showExportDialog = false
+                        exportPassword = ""
+                    },
+                    enabled = exportPassword.length >= 8
+                ) {
+                    Text("Exportar")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showExportDialog = false
+                    exportPassword = ""
+                }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+}
