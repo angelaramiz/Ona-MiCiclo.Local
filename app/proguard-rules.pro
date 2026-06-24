@@ -48,3 +48,5 @@
     <methods>;
 }
 -dontwarn com.google.mediapipe.proto.CalculatorProfileProto
+-dontwarn com.google.mediapipe.framework.image.**
+-dontwarn com.google.protobuf.**
