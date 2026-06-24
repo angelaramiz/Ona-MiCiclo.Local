@@ -132,6 +132,9 @@ dependencies {
     // ── Coil (Image loading) ──
     implementation(libs.coil.compose)
 
+    // ── Local AI (MediaPipe Tasks GenAI) ──
+    implementation(libs.mediapipe.genai)
+
     // ── Testing ──
     testImplementation(libs.junit)
     testImplementation(libs.mockk)

@@ -289,15 +289,15 @@ fun SettingsScreen(
                     Text("Inteligencia Artificial Local (LLM)", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Descarga el modelo neuronal Qwen 2.5 (930 MB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
+                        text = "Descarga el modelo neuronal Gemma 2B (1.35 GB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Spacer(modifier = Modifier.height(12.dp))
-
+ 
                     if (uiState.isAiModelDownloaded) {
                         Text(
-                            text = "✅ Modelo Qwen 2.5 descargado e inicializado en disco (1.2 GB)",
+                            text = "✅ Modelo Gemma 2B descargado e inicializado en disco (1.35 GB)",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -324,7 +324,7 @@ fun SettingsScreen(
                         )
                     } else {
                         OnaButton(
-                            text = "📥 Descargar modelo Qwen 2.5 (930 MB)",
+                            text = "📥 Descargar modelo Gemma 2B (1.35 GB)",
                             onClick = { viewModel.downloadAiModel() }
                         )
                         uiState.aiDownloadError?.let { error ->

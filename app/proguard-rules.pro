@@ -37,3 +37,14 @@
 -keep class com.ona.miciclo.data.local.entity.** { *; }
 -keep class com.ona.miciclo.core.sync.SupabaseSyncManager$* { *; }
 -keep class com.ona.miciclo.core.update.** { *; }
+
+# ── MediaPipe Tasks GenAI ──
+-keep class com.google.mediapipe.proto.** { *; }
+-keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite { *; }
+-keep class com.google.common.flogger.** { *; }
+-keep class com.google.mediapipe.** { *; }
+-keepclassmembers class com.google.mediapipe.** { *; }
+-keepclassmembers,allowoptimization class com.google.mediapipe.** {
+    <methods>;
+}
+-dontwarn com.google.mediapipe.proto.CalculatorProfileProto

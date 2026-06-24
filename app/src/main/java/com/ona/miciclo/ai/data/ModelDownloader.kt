@@ -26,9 +26,9 @@ class ModelDownloader @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     val modelFile: File
-        get() = File(context.filesDir, "qwen2.5-1.5b-instruct-q4_k_m.gguf")
+        get() = File(context.filesDir, "gemma-2b-it-cpu-int4.bin")
 
-    private val modelUrl = "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf"
+    private val modelUrl = "https://huggingface.co/metsman/gemma-2b-it-cpu-int4-org/resolve/main/gemma-2b-it-cpu-int4.bin"
 
     fun isModelDownloaded(): Boolean {
         return modelFile.exists() && modelFile.length() > 100 * 1024 * 1024 // Al menos 100MB
@@ -44,17 +44,17 @@ class ModelDownloader @Inject constructor(
     fun downloadModel(): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0f))
 
-        // 1. Verificar espacio disponible en disco (requiere 1.5 GB libres)
-        val requiredSpace = 1.5 * 1024 * 1024 * 1024 // 1.5 GB
+        // 1. Verificar espacio disponible en disco (requiere 1.8 GB libres)
+        val requiredSpace = 1.8 * 1024 * 1024 * 1024 // 1.8 GB
         val usableSpace = context.filesDir.usableSpace
         if (usableSpace < requiredSpace) {
-            emit(DownloadState.Error(Exception("Espacio insuficiente en disco. Se requieren al menos 1.5 GB libres.")))
+            emit(DownloadState.Error(Exception("Espacio insuficiente en disco. Se requieren al menos 1.8 GB libres.")))
             return@flow
         }
 
         try {
             // Asegurarse de que el archivo temporal o antiguo no interfiera
-            val tempFile = File(context.filesDir, "qwen_model.gguf.tmp")
+            val tempFile = File(context.filesDir, "gemma_model.bin.tmp")
             if (tempFile.exists()) {
                 tempFile.delete()
             }

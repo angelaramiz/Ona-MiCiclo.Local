@@ -47,6 +47,7 @@ securityCrypto = "1.1.0-alpha06"
 gson = "2.11.0"
 camerax = "1.4.0"
 coil = "2.7.0"
+mediapipeGenai = "0.10.27"
 
 # Testing
 junit = "4.13.2"
@@ -131,6 +132,7 @@ mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 androidx-room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
+mediapipe-genai = { group = "com.google.mediapipe", name = "tasks-genai", version.ref = "mediapipeGenai" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
