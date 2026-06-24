@@ -16,7 +16,7 @@ android {
         applicationId = "com.ona.miciclo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
+        versionCode = 8
         versionName = "1.0.0-phase1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -122,6 +122,16 @@ dependencies {
     // ── JSON (export/import of encrypted backups) ──
     implementation(libs.gson)
 
+    // ── CameraX (OCR for ovulation strips) ──
+    implementation(libs.androidx.camera.core)
+    implementation(libs.androidx.camera.camera2)
+    implementation(libs.androidx.camera.lifecycle)
+    implementation(libs.androidx.camera.view)
+    implementation("com.google.guava:guava:31.1-android")
+
+    // ── Coil (Image loading) ──
+    implementation(libs.coil.compose)
+
     // ── Testing ──
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -134,6 +144,7 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
 
 
 
