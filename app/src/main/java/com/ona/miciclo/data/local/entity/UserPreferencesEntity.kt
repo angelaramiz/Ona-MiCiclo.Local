@@ -35,6 +35,14 @@ data class UserPreferencesEntity(
     @ColumnInfo(name = "ultima_fecha_menstruacion")
     val ultimaFechaMenstruacion: LocalDate? = null,
 
+    /** Rol del usuario: "hostess" (anfitriona) o "partner" (pareja) */
+    @ColumnInfo(name = "user_role")
+    val userRole: String = "hostess",
+
+    /** ID de la pareja vinculada */
+    @ColumnInfo(name = "linked_user_id")
+    val linkedUserId: String? = null,
+
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long = System.currentTimeMillis()
 )

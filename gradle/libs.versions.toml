@@ -88,9 +88,10 @@ hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
 
-# Firebase Auth (ONLY — no analytics, no crashlytics, no cloud storage)
+# Firebase Auth & Firestore
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
+firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 
 # Credential Manager (replaces deprecated GoogleSignInClient)
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }

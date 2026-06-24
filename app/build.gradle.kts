@@ -100,9 +100,10 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // ── Firebase Auth ONLY — zero analytics, zero tracking ──
+    // ── Firebase Auth & Firestore (for Partner linking) ──
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
 
     // ── Credential Manager (modern Google Sign-In) ──
     implementation(libs.androidx.credentials)

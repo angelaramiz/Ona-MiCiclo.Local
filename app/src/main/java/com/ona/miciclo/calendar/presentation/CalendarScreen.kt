@@ -48,16 +48,18 @@ fun CalendarScreen(
             OnaTopBar(title = "Mi Ciclo")
         },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = {
-                    val date = uiState.selectedDate ?: java.time.LocalDate.now()
-                    onNavigateToDailyLog(date.toString())
-                },
-                icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                text = { Text("Registro") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary
-            )
+            if (!uiState.isReadOnly) {
+                ExtendedFloatingActionButton(
+                    onClick = {
+                        val date = uiState.selectedDate ?: java.time.LocalDate.now()
+                        onNavigateToDailyLog(date.toString())
+                    },
+                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                    text = { Text("Registro") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
+            }
         }
     ) { padding ->
         Column(
@@ -115,7 +117,7 @@ fun CalendarScreen(
             Spacer(modifier = Modifier.height(24.dp))
 
             // Botón de inicio de periodo
-            if (uiState.selectedDate != null) {
+            if (uiState.selectedDate != null && !uiState.isReadOnly) {
                 androidx.compose.material3.OutlinedButton(
                     onClick = { viewModel.startNewPeriod(uiState.selectedDate!!) },
                     modifier = Modifier.fillMaxWidth(),

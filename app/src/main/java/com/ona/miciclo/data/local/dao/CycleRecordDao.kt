@@ -43,6 +43,15 @@ interface CycleRecordDao {
     @Query("DELETE FROM cycle_records WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(records: List<CycleRecordEntity>)
+
+    @androidx.room.Transaction
+    suspend fun clearAndInsertCycles(userId: String, records: List<CycleRecordEntity>) {
+        deleteAllByUser(userId)
+        insertAll(records)
+    }
+
     /** Para export — obtiene todos los registros sin Flow */
     @Query("SELECT * FROM cycle_records WHERE user_id = :userId ORDER BY fecha_inicio_menstruacion ASC")
     suspend fun getAllByUserSync(userId: String): List<CycleRecordEntity>

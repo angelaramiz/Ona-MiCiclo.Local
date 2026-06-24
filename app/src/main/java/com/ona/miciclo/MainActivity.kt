@@ -43,6 +43,10 @@ import com.ona.miciclo.onboarding.presentation.OnboardingScreen
 import com.ona.miciclo.onboarding.presentation.OnboardingViewModel
 import com.ona.miciclo.settings.presentation.SettingsScreen
 import com.ona.miciclo.settings.presentation.SettingsViewModel
+import javax.inject.Inject
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.firstOrNull
 import dagger.hilt.android.AndroidEntryPoint
 
 /**
@@ -51,9 +55,31 @@ import dagger.hilt.android.AndroidEntryPoint
  */
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
+
+    @Inject
+    lateinit var syncManager: com.ona.miciclo.core.sync.FirestoreSyncManager
+
+    @Inject
+    lateinit var userPreferencesDao: com.ona.miciclo.data.local.dao.UserPreferencesDao
+
+    @Inject
+    lateinit var authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        lifecycleScope.launch {
+            authRepository.currentUser.collect { user ->
+                if (user != null) {
+                    val prefs = userPreferencesDao.getByUserId(user.uid)
+                    if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
+                        syncManager.startPartnerSyncListener(user.uid, prefs.linkedUserId)
+                    }
+                }
+            }
+        }
+
         setContent {
             OnaMiCicloTheme {
                 OnaNavigation()

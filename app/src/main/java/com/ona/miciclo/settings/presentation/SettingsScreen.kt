@@ -1,5 +1,7 @@
 package com.ona.miciclo.settings.presentation
 
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -46,6 +48,25 @@ fun SettingsScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val userPrefs by viewModel.userPreferencesState.collectAsState()
+    var partnerCodeInput by rememberSaveable { mutableStateOf("") }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val packageInfo = remember {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            context.packageManager.getPackageInfo(context.packageName, PackageManager.PackageInfoFlags.of(0))
+        } else {
+            @Suppress("DEPRECATION")
+            context.packageManager.getPackageInfo(context.packageName, 0)
+        }
+    }
+    val currentVersionName = packageInfo.versionName ?: "1.0.0"
+    val currentVersionCode = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        packageInfo.longVersionCode.toInt()
+    } else {
+        @Suppress("DEPRECATION")
+        packageInfo.versionCode
+    }
+
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
@@ -68,6 +89,13 @@ fun SettingsScreen(
         uiState.error?.let {
             snackbarHostState.showSnackbar(it)
             viewModel.clearError()
+        }
+    }
+
+    LaunchedEffect(uiState.updateError) {
+        uiState.updateError?.let {
+            snackbarHostState.showSnackbar(it)
+            viewModel.clearUpdateError()
         }
     }
 
@@ -101,6 +129,104 @@ fun SettingsScreen(
                     )
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Vinculación de Pareja
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Compartir con mi Pareja", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    val role = userPrefs?.userRole ?: "hostess"
+                    if (role == "partner") {
+                        Text(
+                            text = "Rol: Pareja vinculada (Solo Lectura) 👁️\nEstás viendo el calendario de la anfitriona.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    } else {
+                        // Rol Hostess (por defecto)
+                        if (!userPrefs?.linkedUserId.isNullOrEmpty()) {
+                            Text(
+                                text = "¡Tu cuenta está vinculada con tu pareja! ❤️",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                        } else {
+                            Text(
+                                text = "Permite que tu pareja vea tu calendario en modo lectura.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            if (uiState.invitationCode != null) {
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text(
+                                            text = "Código de Invitación: ${uiState.invitationCode}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = "Comparte este código con tu pareja para vincular las cuentas.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OnaOutlinedButton(
+                                    text = "Entendido",
+                                    onClick = { viewModel.clearInvitationCode() }
+                                )
+                            } else {
+                                OnaButton(
+                                    text = if (uiState.isGeneratingCode) "Generando..." else "Generar código de invitación",
+                                    onClick = { viewModel.generateInvitationCode() },
+                                    enabled = !uiState.isGeneratingCode
+                                )
+                            }
+                        }
+
+                        // Opción para vincularse como pareja (si aún no está vinculado)
+                        if (userPrefs?.linkedUserId.isNullOrEmpty()) {
+                            Spacer(modifier = Modifier.height(16.dp))
+                            HorizontalDivider()
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text("¿Eres la pareja? Ingresa el código:", style = MaterialTheme.typography.titleSmall)
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            OutlinedTextField(
+                                value = partnerCodeInput,
+                                onValueChange = { partnerCodeInput = it.take(6).uppercase() },
+                                label = { Text("Código de 6 letras") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OnaButton(
+                                text = if (uiState.isLinking) "Vinculando..." else "Vincular como Pareja",
+                                onClick = {
+                                    viewModel.linkPartner(partnerCodeInput)
+                                    partnerCodeInput = ""
+                                },
+                                enabled = partnerCodeInput.length == 6 && !uiState.isLinking
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -121,6 +247,34 @@ fun SettingsScreen(
                     // TODO: Abrir file picker con SAF
                 }
             )
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Actualizaciones
+            Text("Aplicación", style = MaterialTheme.typography.titleSmall)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            OnaOutlinedButton(
+                text = if (uiState.isCheckingForUpdates) "🔄 Buscando..." else "🔄 Comprobar actualización",
+                onClick = { viewModel.checkForUpdates() },
+                enabled = !uiState.isCheckingForUpdates && !uiState.isDownloadingUpdate
+            )
+
+            if (uiState.updateInfo != null) {
+                Text(
+                    text = "⚠️ Hay una actualización disponible: v${uiState.updateInfo?.versionName}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            } else if (uiState.message != null && uiState.message?.contains("actualizada") == true) {
+                Text(
+                    text = "✅ Tu aplicación está en la versión más reciente",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(top = 4.dp)
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider()
@@ -159,13 +313,55 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(8.dp))
 
             Text(
-                text = "Ona v1.0.0 — Fase 1\nHerramienta educativa, no dispositivo médico.",
+                text = "Ona v$currentVersionName (Build $currentVersionCode) — Fase 1\nHerramienta educativa, no dispositivo médico.",
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    // Diálogo de actualización disponible o progreso de descarga
+    uiState.updateInfo?.let { updateInfo ->
+        AlertDialog(
+            onDismissRequest = {
+                if (!uiState.isDownloadingUpdate) {
+                    viewModel.dismissUpdateDialog()
+                }
+            },
+            title = { Text("Actualización disponible") },
+            text = {
+                Column {
+                    Text("Se ha encontrado una nueva versión: v${updateInfo.versionName}")
+                    Spacer(modifier = Modifier.height(12.dp))
+                    if (uiState.isDownloadingUpdate) {
+                        Text("Descargando actualización... ${(uiState.downloadProgress * 100).toInt()}%")
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.downloadProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Text("¿Deseas descargar la actualización e instalarla automáticamente?")
+                    }
+                }
+            },
+            confirmButton = {
+                if (!uiState.isDownloadingUpdate) {
+                    TextButton(onClick = { viewModel.downloadAndInstallUpdate() }) {
+                        Text("Descargar e Instalar")
+                    }
+                }
+            },
+            dismissButton = {
+                if (!uiState.isDownloadingUpdate) {
+                    TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
+                        Text("Cancelar")
+                    }
+                }
+            }
+        )
     }
 
     // Diálogo de confirmación de borrado

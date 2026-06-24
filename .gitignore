@@ -45,3 +45,4 @@ proguard/
 
 # Log files
 *.log
+.env.local

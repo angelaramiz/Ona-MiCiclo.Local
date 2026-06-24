@@ -4,6 +4,9 @@
 
     <!-- Internet required ONLY for Firebase Auth sign-in — no data transmission -->
     <uses-permission android:name="android.permission.INTERNET" />
+    
+    <!-- Permiso requerido para poder instalar APKs descargadas desde la app -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- EXPLICITLY REMOVE tracking/analytics permissions if any library tries to add them -->
     <uses-permission android:name="android.permission.AD_ID" tools:node="remove" />
@@ -19,6 +22,17 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OnaMiCiclo"
         tools:targetApi="34">
+
+        <!-- Provider para compartir de forma segura el archivo APK descargado con el instalador de Android -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <activity
             android:name=".MainActivity"

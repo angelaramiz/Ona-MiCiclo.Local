@@ -21,24 +21,40 @@ import java.time.LocalDate
 import java.time.YearMonth
 import javax.inject.Inject
 
+import com.ona.miciclo.data.local.dao.UserPreferencesDao
+
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
     private val getMonthDataUseCase: GetMonthDataUseCase,
     private val saveDailyLogUseCase: SaveDailyLogUseCase,
     private val calculateCyclePredictionUseCase: CalculateCyclePredictionUseCase,
     private val cycleRepository: CycleRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val userPreferencesDao: UserPreferencesDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
+    private var activeUserId: String = ""
+
     private val userId: String
-        get() = authRepository.currentUser.value?.uid ?: ""
+        get() = activeUserId.ifEmpty { authRepository.currentUser.value?.uid ?: "" }
 
     init {
-        loadCurrentMonth()
-        loadPrediction()
+        viewModelScope.launch {
+            val myUid = authRepository.currentUser.value?.uid ?: ""
+            val prefs = userPreferencesDao.getByUserId(myUid)
+            val isPartner = prefs?.userRole == "partner"
+            activeUserId = if (isPartner && !prefs?.linkedUserId.isNullOrEmpty()) {
+                prefs?.linkedUserId!!
+            } else {
+                myUid
+            }
+            _uiState.update { it.copy(isReadOnly = isPartner) }
+            loadCurrentMonth()
+            loadPrediction()
+        }
     }
 
     fun loadCurrentMonth() {
@@ -178,5 +194,6 @@ data class CalendarUiState(
     val predictionError: String? = null,
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val isReadOnly: Boolean = false
 )

@@ -39,6 +39,15 @@ interface DailyLogDao {
     @Query("DELETE FROM daily_logs WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(logs: List<DailyLogEntity>)
+
+    @androidx.room.Transaction
+    suspend fun clearAndInsertLogs(userId: String, logs: List<DailyLogEntity>) {
+        deleteAllByUser(userId)
+        insertAll(logs)
+    }
+
     /** Para export — obtiene todos los registros sin Flow */
     @Query("SELECT * FROM daily_logs WHERE user_id = :userId ORDER BY fecha ASC")
     suspend fun getAllByUserSync(userId: String): List<DailyLogEntity>

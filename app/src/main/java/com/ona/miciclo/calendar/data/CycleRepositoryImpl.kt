@@ -20,8 +20,14 @@ import javax.inject.Singleton
 @Singleton
 class CycleRepositoryImpl @Inject constructor(
     private val cycleRecordDao: CycleRecordDao,
-    private val dailyLogDao: DailyLogDao
+    private val dailyLogDao: DailyLogDao,
+    private val syncManagerProvider: javax.inject.Provider<com.ona.miciclo.core.sync.FirestoreSyncManager>
 ) : CycleRepository {
+
+    // Helper to trigger background sync if user is hostess
+    private fun triggerSync(userId: String) {
+        syncManagerProvider.get().syncHostessDataToCloud(userId)
+    }
 
     // ── Cycle Records ──
 
@@ -44,15 +50,20 @@ class CycleRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveCycleRecord(record: CycleRecord): Long {
-        return cycleRecordDao.insert(CycleMapper.domainToEntity(record))
+        val result = cycleRecordDao.insert(CycleMapper.domainToEntity(record))
+        triggerSync(record.userId)
+        return result
     }
 
     override suspend fun updateCycleRecord(record: CycleRecord) {
         cycleRecordDao.update(CycleMapper.domainToEntity(record))
+        triggerSync(record.userId)
     }
 
     override suspend fun deleteCycleRecord(id: Long) {
         cycleRecordDao.deleteById(id)
+        // Omitimos triggerSync aquí ya que no tenemos userId de forma directa,
+        // o se sincronizará en el siguiente cambio
     }
 
     override suspend fun getCycleRecordCount(userId: String): Int {
@@ -76,11 +87,14 @@ class CycleRepositoryImpl @Inject constructor(
     }
 
     override suspend fun saveDailyLog(log: DailyLog): Long {
-        return dailyLogDao.insert(DailyLogMapper.domainToEntity(log))
+        val result = dailyLogDao.insert(DailyLogMapper.domainToEntity(log))
+        triggerSync(log.userId)
+        return result
     }
 
     override suspend fun updateDailyLog(log: DailyLog) {
         dailyLogDao.update(DailyLogMapper.domainToEntity(log))
+        triggerSync(log.userId)
     }
 
     override fun getAllDailyLogs(userId: String): Flow<List<DailyLog>> {

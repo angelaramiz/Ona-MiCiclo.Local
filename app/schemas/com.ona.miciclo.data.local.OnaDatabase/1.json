@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "34dac5110fc4ee4834dbf6957ed32093",
+    "identityHash": "1c92aefe9cc379cd7f9e5ef25f9688f4",
     "entities": [
       {
         "tableName": "cycle_records",
@@ -182,7 +182,7 @@
       },
       {
         "tableName": "user_preferences",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `duracion_ciclo_default` INTEGER NOT NULL, `duracion_sangrado_default` INTEGER NOT NULL, `objetivo_usuario` TEXT NOT NULL, `onboarding_completado` INTEGER NOT NULL, `ultima_fecha_menstruacion` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`user_id` TEXT NOT NULL, `duracion_ciclo_default` INTEGER NOT NULL, `duracion_sangrado_default` INTEGER NOT NULL, `objetivo_usuario` TEXT NOT NULL, `onboarding_completado` INTEGER NOT NULL, `ultima_fecha_menstruacion` TEXT, `user_role` TEXT NOT NULL, `linked_user_id` TEXT, `updated_at` INTEGER NOT NULL, PRIMARY KEY(`user_id`))",
         "fields": [
           {
             "fieldPath": "userId",
@@ -221,6 +221,18 @@
             "notNull": false
           },
           {
+            "fieldPath": "userRole",
+            "columnName": "user_role",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "linkedUserId",
+            "columnName": "linked_user_id",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
             "fieldPath": "updatedAt",
             "columnName": "updated_at",
             "affinity": "INTEGER",
@@ -240,7 +252,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '34dac5110fc4ee4834dbf6957ed32093')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '1c92aefe9cc379cd7f9e5ef25f9688f4')"
     ]
   }
 }
