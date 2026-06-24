@@ -75,6 +75,10 @@ class MainActivity : ComponentActivity() {
                     val prefs = userPreferencesDao.getByUserId(user.uid)
                     if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
                         syncManager.startPartnerSyncListener(user.uid, prefs.linkedUserId)
+                    } else {
+                        // Sincronizar datos propios (descargar de la nube si existen y subir cambios locales)
+                        syncManager.downloadUserDataFromCloud(user.uid)
+                        syncManager.syncHostessDataToCloud(user.uid)
                     }
                 }
             }

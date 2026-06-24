@@ -41,6 +41,10 @@ abstract class AppModule {
     @Singleton
     abstract fun bindExportImportRepository(impl: ExportImportRepositoryImpl): ExportImportRepository
 
+    @Binds
+    @Singleton
+    abstract fun bindInferenceEngine(impl: com.ona.miciclo.ai.data.LlamaInferenceEngine): com.ona.miciclo.ai.domain.IInferenceEngine
+
     companion object {
         @Provides
         @Singleton

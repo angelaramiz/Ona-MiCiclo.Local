@@ -10,4 +10,11 @@ import dagger.hilt.android.HiltAndroidApp
  * No analytics SDKs, no tracking libraries — privacy by design.
  */
 @HiltAndroidApp
-class OnaApp : Application()
+class OnaApp : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        // Cargar librería nativa de SQLCipher antes de cualquier operación de base de datos
+        System.loadLibrary("sqlcipher")
+    }
+}
+

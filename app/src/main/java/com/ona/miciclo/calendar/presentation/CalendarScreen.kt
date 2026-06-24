@@ -15,8 +15,10 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +27,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -32,6 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
 import com.ona.miciclo.calendar.presentation.components.MonthCalendarGrid
 import com.ona.miciclo.core.ui.components.OnaTopBar
+import com.ona.miciclo.ai.presentation.components.AiChatDialog
 import java.time.format.TextStyle
 import java.util.Locale
 
@@ -39,26 +45,45 @@ import java.util.Locale
 fun CalendarScreen(
     viewModel: CalendarViewModel,
     onNavigateToDailyLog: (String) -> Unit,
+    chatViewModel: com.ona.miciclo.ai.presentation.AiChatViewModel = androidx.hilt.navigation.compose.hiltViewModel(),
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var showChat by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             OnaTopBar(title = "Mi Ciclo")
         },
         floatingActionButton = {
-            if (!uiState.isReadOnly) {
-                ExtendedFloatingActionButton(
-                    onClick = {
-                        val date = uiState.selectedDate ?: java.time.LocalDate.now()
-                        onNavigateToDailyLog(date.toString())
-                    },
-                    icon = { Icon(Icons.Default.Add, contentDescription = null) },
-                    text = { Text("Registro") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                )
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                // Burbuja Chat IA (Disponible para lectura y escritura)
+                FloatingActionButton(
+                    onClick = { showChat = true },
+                    containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    contentColor = MaterialTheme.colorScheme.onSecondaryContainer
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Chat,
+                        contentDescription = "Chat con Ona"
+                    )
+                }
+
+                if (!uiState.isReadOnly) {
+                    ExtendedFloatingActionButton(
+                        onClick = {
+                            val date = uiState.selectedDate ?: java.time.LocalDate.now()
+                            onNavigateToDailyLog(date.toString())
+                        },
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        text = { Text("Registro") },
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary
+                    )
+                }
             }
         }
     ) { padding ->
@@ -174,5 +199,12 @@ fun CalendarScreen(
 
             Spacer(modifier = Modifier.height(100.dp)) // Space for FAB
         }
+    }
+
+    if (showChat) {
+        AiChatDialog(
+            viewModel = chatViewModel,
+            onDismiss = { showChat = false }
+        )
     }
 }

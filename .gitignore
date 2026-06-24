@@ -47,3 +47,4 @@ proguard/
 *.log
 .env.local
 publish-release.ps1
+build_output.txt

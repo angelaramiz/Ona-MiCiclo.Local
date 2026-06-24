@@ -1,6 +1,9 @@
 # ── SQLCipher ──
 -keep class net.sqlcipher.** { *; }
 -dontwarn net.sqlcipher.**
+-keep class net.zetetic.** { *; }
+-dontwarn net.zetetic.**
+
 
 # ── Firebase Auth ──
 -keep class com.google.firebase.auth.** { *; }
@@ -32,3 +35,5 @@
 -keepattributes Signature
 -keepattributes *Annotation*
 -keep class com.ona.miciclo.data.local.entity.** { *; }
+-keep class com.ona.miciclo.core.sync.SupabaseSyncManager$* { *; }
+-keep class com.ona.miciclo.core.update.** { *; }

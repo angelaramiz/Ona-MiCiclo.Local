@@ -220,6 +220,56 @@ class SupabaseSyncManager(
     }
 
     /**
+     * Descarga y desencripta los ciclos y logs diarios del propio usuario (hostess) si existen en la nube.
+     */
+    fun downloadUserDataFromCloud(userId: String) {
+        scope.launch {
+            try {
+                val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+                val decryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
+
+                // 1. Descargar y desencriptar Ciclos
+                val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$userId")
+                val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
+                if (cyclesRows.isNotEmpty()) {
+                    val cycleEntities = cyclesRows.mapNotNull { row ->
+                        try {
+                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                            gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = userId)
+                        } catch (e: Exception) {
+                            null // Si no se puede desencriptar (ej. diferente clave), ignorar
+                        }
+                    }
+                    if (cycleEntities.isNotEmpty()) {
+                        cycleRecordDao.clearAndInsertCycles(userId, cycleEntities)
+                    }
+                }
+
+                // 2. Descargar y desencriptar Logs Diarios
+                val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$userId")
+                val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
+                if (logsRows.isNotEmpty()) {
+                    val logEntities = logsRows.mapNotNull { row ->
+                        try {
+                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                            gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = userId)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (logEntities.isNotEmpty()) {
+                        dailyLogDao.clearAndInsertLogs(userId, logEntities)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    /**
      * Descarga periódica y desencriptación para la base de datos de la pareja.
      */
     fun startPartnerSyncListener(partnerId: String, hostessId: String) {

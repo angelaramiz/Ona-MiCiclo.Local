@@ -64,6 +64,18 @@ data class DailyLogEntity(
     @ColumnInfo(name = "temperatura_basal")
     val temperaturaBasal: Double? = null,
 
+    /** Moco cervical: "seco", "pegajoso", "cremoso", "acuoso", "clara_de_huevo" */
+    @ColumnInfo(name = "moco_cervical")
+    val mocoCervical: String? = null,
+
+    /** Posición cervical: "baja", "media", "alta" */
+    @ColumnInfo(name = "posicion_cervical")
+    val posicionCervical: String? = null,
+
+    /** Resultado de tira LH: "negativo", "positivo", "debil" */
+    @ColumnInfo(name = "resultado_tira_lh")
+    val resultadoTiraLh: String? = null,
+
     /** Notas de texto libre de la usuaria */
     @ColumnInfo(name = "notas")
     val notas: String? = null,

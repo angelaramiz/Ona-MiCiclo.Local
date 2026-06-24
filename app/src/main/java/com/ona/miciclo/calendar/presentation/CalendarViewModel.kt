@@ -103,6 +103,9 @@ class CalendarViewModel @Inject constructor(
         flowLevel: FlowLevel,
         symptoms: List<String>,
         basalTemp: Double?,
+        mocoCervical: String? = null,
+        posicionCervical: String? = null,
+        resultadoTiraLh: String? = null,
         notes: String?
     ) {
         viewModelScope.launch {
@@ -114,6 +117,9 @@ class CalendarViewModel @Inject constructor(
                 nivelFlujo = flowLevel,
                 sintomasBasicos = symptoms,
                 temperaturaBasal = basalTemp,
+                mocoCervical = mocoCervical,
+                posicionCervical = posicionCervical,
+                resultadoTiraLh = resultadoTiraLh,
                 notas = notes
             )
 

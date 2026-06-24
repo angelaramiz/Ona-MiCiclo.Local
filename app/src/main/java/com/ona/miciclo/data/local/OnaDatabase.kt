@@ -26,7 +26,7 @@ import com.ona.miciclo.data.local.entity.UserPreferencesEntity
         DailyLogEntity::class,
         UserPreferencesEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

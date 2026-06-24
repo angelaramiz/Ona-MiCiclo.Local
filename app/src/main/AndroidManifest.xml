@@ -8,6 +8,9 @@
     <!-- Permiso requerido para poder instalar APKs descargadas desde la app -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
+    <!-- Permiso de cámara para escaneo local OCR de tiras de ovulación -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
     <!-- EXPLICITLY REMOVE tracking/analytics permissions if any library tries to add them -->
     <uses-permission android:name="android.permission.AD_ID" tools:node="remove" />
 
@@ -43,6 +46,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- Actividad para el escaneo OCR local de las tiras de ovulación -->
+        <activity
+            android:name=".ocr.presentation.OcrCaptureActivity"
+            android:exported="false"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.OnaMiCiclo" />
 
     </application>
 

@@ -12,6 +12,9 @@ data class DailyLog(
     val nivelFlujo: FlowLevel = FlowLevel.NONE,
     val sintomasBasicos: List<String> = emptyList(),
     val temperaturaBasal: Double? = null,
+    val mocoCervical: String? = null,
+    val posicionCervical: String? = null,
+    val resultadoTiraLh: String? = null,
     val notas: String? = null,
     val createdAt: Long = System.currentTimeMillis()
 ) {

@@ -27,11 +27,14 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val updateManager: com.ona.miciclo.core.update.UpdateManager,
     private val userPreferencesDao: UserPreferencesDao,
-    private val syncManager: SupabaseSyncManager
+    private val syncManager: SupabaseSyncManager,
+    private val modelDownloader: com.ona.miciclo.ai.data.ModelDownloader
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
+
+    private var aiDownloadJob: kotlinx.coroutines.Job? = null
 
     private val userId: String
         get() = authRepository.currentUser.value?.uid ?: ""
@@ -45,6 +48,67 @@ class SettingsViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = null
         )
+
+    init {
+        _uiState.update {
+            it.copy(isAiModelDownloaded = modelDownloader.isModelDownloaded())
+        }
+    }
+
+    fun downloadAiModel() {
+        aiDownloadJob?.cancel()
+        aiDownloadJob = viewModelScope.launch {
+            _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
+            modelDownloader.downloadModel().collect { state ->
+                when (state) {
+                    is com.ona.miciclo.ai.data.DownloadState.Downloading -> {
+                        _uiState.update { it.copy(aiDownloadProgress = state.progress) }
+                    }
+                    com.ona.miciclo.ai.data.DownloadState.Success -> {
+                        _uiState.update {
+                            it.copy(
+                                isDownloadingAi = false,
+                                isAiModelDownloaded = true,
+                                message = "Modelo de IA descargado e inicializado correctamente ✓"
+                            )
+                        }
+                    }
+                    is com.ona.miciclo.ai.data.DownloadState.Error -> {
+                        _uiState.update {
+                            it.copy(
+                                isDownloadingAi = false,
+                                aiDownloadError = state.error.message ?: "Error desconocido"
+                            )
+                        }
+                    }
+                    com.ona.miciclo.ai.data.DownloadState.Idle -> {
+                        _uiState.update { it.copy(isDownloadingAi = false) }
+                    }
+                }
+            }
+        }
+    }
+
+    fun deleteAiModel() {
+        viewModelScope.launch {
+            val success = modelDownloader.deleteModel()
+            if (success) {
+                _uiState.update {
+                    it.copy(
+                        isAiModelDownloaded = false,
+                        message = "Modelo de IA eliminado para liberar espacio."
+                    )
+                }
+            } else {
+                _uiState.update { it.copy(error = "No se pudo eliminar el modelo.") }
+            }
+        }
+    }
+
+    fun cancelAiDownload() {
+        aiDownloadJob?.cancel()
+        _uiState.update { it.copy(isDownloadingAi = false, aiDownloadProgress = 0f) }
+    }
 
     fun checkForUpdates() {
         viewModelScope.launch {
@@ -186,5 +250,9 @@ data class SettingsUiState(
     val updateError: String? = null,
     val isGeneratingCode: Boolean = false,
     val invitationCode: String? = null,
-    val isLinking: Boolean = false
+    val isLinking: Boolean = false,
+    val isAiModelDownloaded: Boolean = false,
+    val isDownloadingAi: Boolean = false,
+    val aiDownloadProgress: Float = 0f,
+    val aiDownloadError: String? = null
 )

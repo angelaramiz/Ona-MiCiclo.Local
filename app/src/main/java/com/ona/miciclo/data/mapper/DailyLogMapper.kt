@@ -21,6 +21,9 @@ object DailyLogMapper {
             nivelFlujo = entity.nivelFlujo?.let { FlowLevel.fromString(it) } ?: FlowLevel.NONE,
             sintomasBasicos = parseSymptoms(entity.sintomasBasicos),
             temperaturaBasal = entity.temperaturaBasal,
+            mocoCervical = entity.mocoCervical,
+            posicionCervical = entity.posicionCervical,
+            resultadoTiraLh = entity.resultadoTiraLh,
             notas = entity.notas,
             createdAt = entity.createdAt
         )
@@ -34,6 +37,9 @@ object DailyLogMapper {
             nivelFlujo = domain.nivelFlujo.value,
             sintomasBasicos = if (domain.sintomasBasicos.isEmpty()) null else gson.toJson(domain.sintomasBasicos),
             temperaturaBasal = domain.temperaturaBasal,
+            mocoCervical = domain.mocoCervical,
+            posicionCervical = domain.posicionCervical,
+            resultadoTiraLh = domain.resultadoTiraLh,
             notas = domain.notas,
             createdAt = domain.createdAt
         )

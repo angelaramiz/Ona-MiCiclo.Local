@@ -7,6 +7,7 @@ import android.net.Uri
 import android.os.Build
 import androidx.core.content.FileProvider
 import com.google.gson.Gson
+import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -24,9 +25,9 @@ class UpdateManager(private val context: Context) {
     private val updateUrl = "https://raw.githubusercontent.com/angelaramiz/Ona-MiCiclo.Local/main/release/update.json"
 
     data class UpdateInfo(
-        val versionCode: Int,
-        val versionName: String,
-        val downloadUrl: String
+        @SerializedName("versionCode") val versionCode: Int,
+        @SerializedName("versionName") val versionName: String,
+        @SerializedName("downloadUrl") val downloadUrl: String
     )
 
     sealed interface UpdateResult {

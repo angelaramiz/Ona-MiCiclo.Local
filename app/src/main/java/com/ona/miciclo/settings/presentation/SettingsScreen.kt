@@ -276,6 +276,69 @@ fun SettingsScreen(
                 )
             }
 
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Inteligencia Artificial Local (LLM)
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                )
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text("Inteligencia Artificial Local (LLM)", style = MaterialTheme.typography.titleSmall)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Descarga el modelo neuronal Qwen 2.5 (930 MB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (uiState.isAiModelDownloaded) {
+                        Text(
+                            text = "✅ Modelo Qwen 2.5 descargado e inicializado en disco (1.2 GB)",
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OnaOutlinedButton(
+                            text = "🗑️ Eliminar modelo de IA",
+                            onClick = { viewModel.deleteAiModel() }
+                        )
+                    } else if (uiState.isDownloadingAi) {
+                        Text(
+                            text = "Descargando modelo neuronal... ${(uiState.aiDownloadProgress * 100).toInt()}%",
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        androidx.compose.material3.LinearProgressIndicator(
+                            progress = { uiState.aiDownloadProgress },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OnaOutlinedButton(
+                            text = "Cancelar Descarga",
+                            onClick = { viewModel.cancelAiDownload() }
+                        )
+                    } else {
+                        OnaButton(
+                            text = "📥 Descargar modelo Qwen 2.5 (930 MB)",
+                            onClick = { viewModel.downloadAiModel() }
+                        )
+                        uiState.aiDownloadError?.let { error ->
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "⚠️ Error: $error",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(24.dp))
             HorizontalDivider()
             Spacer(modifier = Modifier.height(24.dp))
