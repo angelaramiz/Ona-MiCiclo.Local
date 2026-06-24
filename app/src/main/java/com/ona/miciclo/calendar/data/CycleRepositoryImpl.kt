@@ -21,7 +21,7 @@ import javax.inject.Singleton
 class CycleRepositoryImpl @Inject constructor(
     private val cycleRecordDao: CycleRecordDao,
     private val dailyLogDao: DailyLogDao,
-    private val syncManagerProvider: javax.inject.Provider<com.ona.miciclo.core.sync.FirestoreSyncManager>
+    private val syncManagerProvider: javax.inject.Provider<com.ona.miciclo.core.sync.SupabaseSyncManager>
 ) : CycleRepository {
 
     // Helper to trigger background sync if user is hostess

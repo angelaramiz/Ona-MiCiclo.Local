@@ -57,7 +57,7 @@ import dagger.hilt.android.AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
     @Inject
-    lateinit var syncManager: com.ona.miciclo.core.sync.FirestoreSyncManager
+    lateinit var syncManager: com.ona.miciclo.core.sync.SupabaseSyncManager
 
     @Inject
     lateinit var userPreferencesDao: com.ona.miciclo.data.local.dao.UserPreferencesDao

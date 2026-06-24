@@ -1,11 +1,11 @@
 package com.ona.miciclo.core.di
 
 import android.content.Context
-import com.google.firebase.firestore.FirebaseFirestore
 import com.ona.miciclo.auth.data.AuthRepositoryImpl
 import com.ona.miciclo.auth.domain.repository.AuthRepository
 import com.ona.miciclo.calendar.data.CycleRepositoryImpl
 import com.ona.miciclo.calendar.domain.repository.CycleRepository
+import com.ona.miciclo.core.sync.SupabaseSyncManager
 import com.ona.miciclo.core.update.UpdateManager
 import com.ona.miciclo.data.local.OnaDatabase
 import com.ona.miciclo.data.local.dao.CycleRecordDao
@@ -52,20 +52,14 @@ abstract class AppModule {
 
         @Provides
         @Singleton
-        fun provideFirebaseFirestore(): FirebaseFirestore {
-            return FirebaseFirestore.getInstance()
-        }
-
-        @Provides
-        @Singleton
-        fun provideFirestoreSyncManager(
-            db: FirebaseFirestore,
+        fun provideSupabaseSyncManager(
+            keystoreManager: com.ona.miciclo.core.security.KeystoreManager,
             database: OnaDatabase,
             cycleRecordDao: CycleRecordDao,
             dailyLogDao: DailyLogDao,
             userPreferencesDao: UserPreferencesDao
-        ): com.ona.miciclo.core.sync.FirestoreSyncManager {
-            return com.ona.miciclo.core.sync.FirestoreSyncManager(db, database, cycleRecordDao, dailyLogDao, userPreferencesDao)
+        ): SupabaseSyncManager {
+            return SupabaseSyncManager(keystoreManager, database, cycleRecordDao, dailyLogDao, userPreferencesDao)
         }
     }
 }

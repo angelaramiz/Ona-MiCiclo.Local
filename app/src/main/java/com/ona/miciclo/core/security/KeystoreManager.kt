@@ -87,6 +87,13 @@ class KeystoreManager @Inject constructor(
     }
 
     /**
+     * Guarda una passphrase dada. Utilizado para sincronizar la clave con la pareja.
+     */
+    fun saveDatabasePassphrase(passphrase: ByteArray) {
+        storePassphrase(passphrase)
+    }
+
+    /**
      * OPERACIÓN DESTRUCTIVA: Elimina la passphrase almacenada.
      * Esto hace que la base de datos encriptada sea irrecuperable.
      * Solo debe usarse en el flujo de "borrado total de datos".

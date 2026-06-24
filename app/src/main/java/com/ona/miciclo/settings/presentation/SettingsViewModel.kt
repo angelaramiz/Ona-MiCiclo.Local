@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import com.ona.miciclo.core.sync.FirestoreSyncManager
+import com.ona.miciclo.core.sync.SupabaseSyncManager
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -27,7 +27,7 @@ class SettingsViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val updateManager: com.ona.miciclo.core.update.UpdateManager,
     private val userPreferencesDao: UserPreferencesDao,
-    private val syncManager: FirestoreSyncManager
+    private val syncManager: SupabaseSyncManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
