@@ -16,7 +16,7 @@ android {
         applicationId = "com.ona.miciclo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 11
+        versionCode = 12
         versionName = "1.0.0-phase1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -144,6 +144,7 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
 
 
 
