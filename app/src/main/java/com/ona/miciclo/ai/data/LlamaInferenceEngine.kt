@@ -104,13 +104,24 @@ class LlamaInferenceEngine @Inject constructor(
             lowerPrompt.contains("temperatura") || lowerPrompt.contains("basal") -> {
                 "La temperatura basal se mide justo al despertar, antes de levantarte de la cama. Un aumento sostenido de unos 0.3°C a 0.5°C suele confirmar que la ovulación ya ha ocurrido."
             }
+            lowerPrompt.contains("precisión") || lowerPrompt.contains("precision") || lowerPrompt.contains("presión") || lowerPrompt.contains("presion") || lowerPrompt.contains("exacto") || lowerPrompt.contains("exactitud") || lowerPrompt.contains("efectiv") || lowerPrompt.contains("confia") || lowerPrompt.contains("tasa") -> {
+                "El método sintotérmico que usa Ona tiene una efectividad muy alta (hasta el 99% con un uso perfecto y consistente, y en torno al 98% en uso típico). Cuantos más días consecutivos registres parámetros clave como tu temperatura basal (al despertar) y la consistencia de tu moco cervical, más preciso y personalizado será el análisis de tu ventana de fertilidad."
+            }
             lowerPrompt.contains("privacidad") || lowerPrompt.contains("seguro") || lowerPrompt.contains("datos") || lowerPrompt.contains("nube") || lowerPrompt.contains("encripta") || lowerPrompt.contains("internet") || lowerPrompt.contains("servidor") -> {
                 "Tus datos son 100% privados. La base de datos local está cifrada con SQLCipher y ninguna información personal ni biométrica sale de tu dispositivo a internet o a servidores externos."
             }
             else -> {
-                val base = "Entiendo tu consulta sobre \"$userQuery\". Como tu asistente local, te sugiero registrar tus síntomas diariamente para que podamos aprender juntos de tu ciclo."
+                // Seleccionar una respuesta de contingencia variada usando el hashCode de la consulta
+                val fallbackTemplates = listOf(
+                    "Entiendo tu inquietud sobre \"$userQuery\". Recuerda que la regularidad al registrar tu temperatura basal y moco cervical ayuda a refinar los cálculos del método sintotérmico.",
+                    "Con respecto a tu consulta sobre \"$userQuery\", te sugiero revisar si has ingresado tus observaciones hoy. El análisis de tus fases es más preciso cuando los registros son continuos.",
+                    "Interesante pregunta sobre \"$userQuery\". Como tu asistente local offline, me baso en los parámetros corporales que registras en el Calendario para estimar tus días fértiles con exactitud.",
+                    "Para responder de forma óptima sobre \"$userQuery\", lo ideal es analizar la tendencia de tus ciclos. Te aconsejo mantener al día el registro de síntomas para ajustar tus estimaciones."
+                )
+                val index = kotlin.math.abs(userQuery.hashCode()) % fallbackTemplates.size
+                val base = fallbackTemplates[index]
                 if (contextInfo.isNotEmpty()) {
-                    "$base\n\nTu registro actual indica:\n$contextInfo"
+                    "$base\n\nResumen actual de tu ciclo:\n$contextInfo"
                 } else {
                     base
                 }
