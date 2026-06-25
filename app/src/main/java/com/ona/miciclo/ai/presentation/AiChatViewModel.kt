@@ -6,6 +6,7 @@ import com.ona.miciclo.ai.domain.IInferenceEngine
 import com.ona.miciclo.ai.domain.PromptBuilder
 import com.ona.miciclo.auth.domain.repository.AuthRepository
 import com.ona.miciclo.calendar.domain.repository.CycleRepository
+import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -32,14 +33,12 @@ data class AiChatUiState(
 class AiChatViewModel @Inject constructor(
     private val inferenceEngine: IInferenceEngine,
     private val cycleRepository: CycleRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    private val userPreferencesDao: UserPreferencesDao
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiChatUiState())
     val uiState: StateFlow<AiChatUiState> = _uiState.asStateFlow()
-
-    private val userId: String
-        get() = authRepository.currentUser.value?.uid ?: ""
 
     init {
         // Mensaje de bienvenida inicial de la IA
@@ -68,10 +67,19 @@ class AiChatViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Resolver el userId correcto (hostess o partner vinculado)
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                val prefs = userPreferencesDao.getByUserId(myUid)
+                val resolvedUserId = if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
+                    prefs.linkedUserId!!
+                } else {
+                    myUid
+                }
+
                 // Obtener datos históricos del ciclo actual
-                val ciclos = cycleRepository.getLastCycleRecords(userId, 3)
+                val ciclos = cycleRepository.getLastCycleRecords(resolvedUserId, 3)
                 // Obtener registros diarios recientes para contexto sintotérmico
-                val logs = cycleRepository.getAllDailyLogsSync(userId)
+                val logs = cycleRepository.getAllDailyLogsSync(resolvedUserId)
 
                 // Generar contexto biológico del usuario
                 val promptContext = if (ciclos.isNotEmpty() || logs.isNotEmpty()) {
