@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.WaterDrop
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -102,6 +103,11 @@ fun DailyLogScreen(
     var selectedPosition by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedLh by rememberSaveable { mutableStateOf<String?>(null) }
     var notes by rememberSaveable { mutableStateOf("") }
+    var isPeriodStart by rememberSaveable { mutableStateOf(false) }
+
+    LaunchedEffect(uiState.isSelectedDatePeriodStart) {
+        isPeriodStart = uiState.isSelectedDatePeriodStart
+    }
 
     // Estados para diálogos educativos (Tooltips)
     var activeTooltipTitle by remember { mutableStateOf<String?>(null) }
@@ -208,6 +214,32 @@ fun DailyLogScreen(
             )
 
             Spacer(modifier = Modifier.height(24.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.WaterDrop,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.error
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Inicio de periodo menstrual",
+                        style = MaterialTheme.typography.bodyLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+                Switch(
+                    checked = isPeriodStart,
+                    onCheckedChange = { isPeriodStart = it }
+                )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             // ── Configuración de Campos Sintotérmicos ──
             Card(
@@ -529,7 +561,6 @@ fun DailyLogScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // Botón guardar
             OnaButton(
                 text = "Guardar Registro",
                 onClick = {
@@ -543,6 +574,11 @@ fun DailyLogScreen(
                         resultadoTiraLh = if (showLh) selectedLh else null,
                         notes = notes.ifBlank { null }
                     )
+                    if (isPeriodStart && !uiState.isSelectedDatePeriodStart) {
+                        viewModel.startNewPeriod(date)
+                    } else if (!isPeriodStart && uiState.isSelectedDatePeriodStart) {
+                        viewModel.deletePeriodStart(date)
+                    }
                 },
                 isLoading = uiState.isSaving
             )

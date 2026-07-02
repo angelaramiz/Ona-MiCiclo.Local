@@ -42,8 +42,8 @@ object CryptoUtils {
      * @throws Exception si la encriptación falla
      */
     fun encryptJson(data: String, masterPassword: String): ByteArray {
-        require(masterPassword.length >= 8) {
-            "La contraseña maestra debe tener al menos 8 caracteres"
+        require(masterPassword.length >= 6) {
+            "La contraseña debe tener al menos 6 caracteres"
         }
 
         val salt = generateRandomBytes(SALT_LENGTH)

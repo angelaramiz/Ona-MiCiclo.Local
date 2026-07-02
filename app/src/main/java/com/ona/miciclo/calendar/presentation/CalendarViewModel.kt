@@ -22,6 +22,7 @@ import java.time.YearMonth
 import javax.inject.Inject
 
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
+import com.ona.miciclo.core.sync.SupabaseSyncManager
 
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
@@ -30,7 +31,8 @@ class CalendarViewModel @Inject constructor(
     private val calculateCyclePredictionUseCase: CalculateCyclePredictionUseCase,
     private val cycleRepository: CycleRepository,
     private val authRepository: AuthRepository,
-    private val userPreferencesDao: UserPreferencesDao
+    private val userPreferencesDao: UserPreferencesDao,
+    private val syncManager: SupabaseSyncManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -54,6 +56,7 @@ class CalendarViewModel @Inject constructor(
             _uiState.update { it.copy(isReadOnly = isPartner) }
             loadCurrentMonth()
             loadPrediction()
+            loadPendingSuggestions()
         }
     }
 
@@ -85,6 +88,10 @@ class CalendarViewModel @Inject constructor(
     fun selectDate(date: LocalDate) {
         _uiState.update { it.copy(selectedDate = date) }
         loadDailyLogForDate(date)
+        viewModelScope.launch {
+            val cycleRecord = cycleRepository.getCycleRecordByDate(userId, date)
+            _uiState.update { it.copy(isSelectedDatePeriodStart = cycleRecord != null) }
+        }
     }
 
     fun loadPrediction() {
@@ -175,6 +182,81 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
+    fun suggestPeriodStart(date: LocalDate) {
+        viewModelScope.launch {
+            try {
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                syncManager.sendPartnerSuggestion(userId, myUid, date)
+                _uiState.update { it.copy(message = "Sugerencia enviada a tu pareja ✓") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al sugerir: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    fun loadPendingSuggestions() {
+        val myUid = authRepository.currentUser.value?.uid ?: ""
+        viewModelScope.launch {
+            val prefs = userPreferencesDao.getByUserId(myUid)
+            if (prefs?.userRole == "partner") return@launch
+            try {
+                val suggestions = syncManager.getPendingSuggestions(myUid)
+                if (suggestions.isNotEmpty()) {
+                    _uiState.update { it.copy(pendingSuggestion = suggestions.first()) }
+                } else {
+                    _uiState.update { it.copy(pendingSuggestion = null) }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    fun approveSuggestion(suggestion: SupabaseSyncManager.PartnerSuggestionRow) {
+        viewModelScope.launch {
+            try {
+                val suggestedDate = LocalDate.parse(suggestion.suggested_date)
+                startNewPeriod(suggestedDate)
+                syncManager.updateSuggestionStatus(suggestion.id!!, "APPROVED")
+                _uiState.update { it.copy(pendingSuggestion = null, message = "Sugerencia aprobada y aplicada") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al aprobar sugerencia: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    fun rejectSuggestion(suggestion: SupabaseSyncManager.PartnerSuggestionRow) {
+        viewModelScope.launch {
+            try {
+                syncManager.updateSuggestionStatus(suggestion.id!!, "REJECTED")
+                _uiState.update { it.copy(pendingSuggestion = null, message = "Sugerencia rechazada") }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al rechazar sugerencia: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    fun deletePeriodStart(date: LocalDate) {
+        viewModelScope.launch {
+            try {
+                val record = cycleRepository.getCycleRecordByDate(userId, date)
+                if (record != null) {
+                    cycleRepository.deleteCycleRecord(record.id)
+                    loadPrediction()
+                    val ym = _uiState.value.currentYearMonth
+                    loadMonth(ym.year, ym.monthValue)
+                    selectDate(date)
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message) }
+            }
+        }
+    }
+
+    fun clearMessage() {
+        _uiState.update { it.copy(message = null) }
+    }
+
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
@@ -201,5 +283,8 @@ data class CalendarUiState(
     val isSaving: Boolean = false,
     val saveSuccess: Boolean = false,
     val error: String? = null,
-    val isReadOnly: Boolean = false
+    val isReadOnly: Boolean = false,
+    val isSelectedDatePeriodStart: Boolean = false,
+    val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
+    val message: String? = null
 )

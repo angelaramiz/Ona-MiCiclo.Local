@@ -48,3 +48,6 @@ proguard/
 .env.local
 publish-release.ps1
 build_output.txt
+agentContext/
+AGENTS.md
+.codegraph/

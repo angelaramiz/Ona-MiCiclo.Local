@@ -65,6 +65,17 @@ class SupabaseSyncManager(
         val updated_at: Long = System.currentTimeMillis()
     )
 
+    data class PartnerSuggestionRow(
+        val id: String? = null,
+        val hostess_id: String,
+        val partner_id: String,
+        val suggestion_type: String,
+        val suggested_date: String,
+        val status: String,
+        val created_at: Long = System.currentTimeMillis()
+    )
+
+
     /**
      * Helper para hacer solicitudes HTTP a Supabase.
      */
@@ -301,5 +312,48 @@ class SupabaseSyncManager(
                 e.printStackTrace()
             }
         }
+    }
+
+    /**
+     * Envía una sugerencia de inicio de periodo a la anfitriona.
+     */
+    suspend fun sendPartnerSuggestion(
+        hostessId: String,
+        partnerId: String,
+        suggestedDate: LocalDate
+    ): String = withContext(Dispatchers.IO) {
+        val row = PartnerSuggestionRow(
+            hostess_id = hostessId,
+            partner_id = partnerId,
+            suggestion_type = "START_PERIOD",
+            suggested_date = suggestedDate.toString(),
+            status = "PENDING"
+        )
+        performRequest("POST", "partner_suggestions", gson.toJson(row))
+    }
+
+    /**
+     * Obtiene las sugerencias pendientes para la anfitriona.
+     */
+    suspend fun getPendingSuggestions(hostessId: String): List<PartnerSuggestionRow> = withContext(Dispatchers.IO) {
+        val response = performRequest(
+            method = "GET",
+            table = "partner_suggestions",
+            queryParams = "hostess_id=eq.$hostessId&status=eq.PENDING"
+        )
+        gson.fromJson(response, Array<PartnerSuggestionRow>::class.java).toList()
+    }
+
+    /**
+     * Actualiza el estado de una sugerencia (ej. APPROVED o REJECTED).
+     */
+    suspend fun updateSuggestionStatus(suggestionId: String, status: String) = withContext(Dispatchers.IO) {
+        val body = "{\"status\": \"$status\"}"
+        performRequest(
+            method = "PATCH",
+            table = "partner_suggestions",
+            body = body,
+            queryParams = "id=eq.$suggestionId"
+        )
     }
 }
