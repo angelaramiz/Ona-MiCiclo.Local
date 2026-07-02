@@ -16,7 +16,7 @@ android {
         applicationId = "com.ona.miciclo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 24
+        versionCode = 25
         versionName = "1.0.0-phase1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -25,12 +25,16 @@ android {
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
+
+        ndk {
+            abiFilters += "arm64-v8a"
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            isMinifyEnabled = false // MNN native JNI requires it disabled
+            isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
@@ -62,6 +66,9 @@ android {
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
+        jniLibs {
+            pickFirsts += "lib/arm64-v8a/libc++_shared.so"
         }
     }
 }
@@ -132,9 +139,6 @@ dependencies {
     // ── Coil (Image loading) ──
     implementation(libs.coil.compose)
 
-    // ── Local AI (MediaPipe Tasks GenAI) ──
-    implementation(libs.mediapipe.genai)
-
     // ── Testing ──
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -147,6 +151,7 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
 
 
 
