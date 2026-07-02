@@ -70,6 +70,7 @@ fun SettingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
+    var showDownloadSpecsDialog by rememberSaveable { mutableStateOf(false) }
     var exportPassword by rememberSaveable { mutableStateOf("") }
 
     LaunchedEffect(uiState.isSignedOut) {
@@ -289,7 +290,7 @@ fun SettingsScreen(
                     Text("Inteligencia Artificial Local (LLM)", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Descarga el modelo neuronal Gemma 2B (1.35 GB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
+                        text = "Descarga el modelo multimodal Qwen2-VL 2B (1.2 GB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -297,7 +298,7 @@ fun SettingsScreen(
  
                     if (uiState.isAiModelDownloaded) {
                         Text(
-                            text = "✅ Modelo Gemma 2B descargado e inicializado en disco (1.35 GB)",
+                            text = "✅ Modelo Qwen2-VL 2B descargado e inicializado en disco (1.2 GB)",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -324,8 +325,8 @@ fun SettingsScreen(
                         )
                     } else {
                         OnaButton(
-                            text = "📥 Descargar modelo Gemma 2B (1.35 GB)",
-                            onClick = { viewModel.downloadAiModel() }
+                            text = "📥 Descargar modelo Qwen2-VL 2B (1.2 GB)",
+                            onClick = { showDownloadSpecsDialog = true }
                         )
                         uiState.aiDownloadError?.let { error ->
                             Spacer(modifier = Modifier.height(4.dp))
@@ -491,6 +492,61 @@ fun SettingsScreen(
                     showExportDialog = false
                     exportPassword = ""
                 }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+    // Diálogo de especificaciones de descarga
+    if (showDownloadSpecsDialog) {
+        AlertDialog(
+            onDismissRequest = { showDownloadSpecsDialog = false },
+            title = { Text("Especificaciones Requeridas") },
+            text = {
+                Column {
+                    Text(
+                        text = "Para procesar Qwen2-VL localmente (offline) y habilitar visión e interpretación sin internet, tu dispositivo móvil debe cumplir con los siguientes requisitos mínimos y recomendados:",
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Requisitos Mínimos:\n" +
+                                "• RAM disponible: 4 GB\n" +
+                                "• Almacenamiento libre: 1.5 GB\n" +
+                                "• Procesador de 64 bits (ARM64-v8a)\n" +
+                                "• Sistema Operativo: Android 8.0+",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.SemiBold
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = "Requisitos Recomendados:\n" +
+                                "• RAM disponible: 6 GB o superior (mayor velocidad)\n" +
+                                "• GPU compatible con Vulkan / OpenCL\n" +
+                                "• Sistema Operativo: Android 10.0+",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "¿Deseas iniciar la descarga ahora?",
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.downloadAiModel()
+                        showDownloadSpecsDialog = false
+                    }
+                ) {
+                    Text("Iniciar Descarga")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDownloadSpecsDialog = false }) {
                     Text("Cancelar")
                 }
             }

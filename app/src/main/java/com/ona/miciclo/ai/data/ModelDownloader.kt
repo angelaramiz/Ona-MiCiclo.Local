@@ -25,18 +25,28 @@ sealed interface DownloadState {
 class ModelDownloader @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
-    val modelFile: File
-        get() = File(context.filesDir, "gemma-2b-it-cpu-int4.bin")
+    val modelDir: File
+        get() = File(context.filesDir, "qwen_ocr_model")
 
-    private val modelUrl = "https://huggingface.co/metsman/gemma-2b-it-cpu-int4-org/resolve/main/gemma-2b-it-cpu-int4.bin"
+    private val modelFiles = listOf(
+        "config.json",
+        "llm.mnn",
+        "llm.mnn.weight",
+        "embeddings_bf16.bin",
+        "visual.mnn",
+        "visual.mnn.weight",
+        "tokenizer.txt"
+    )
+
+    private val baseUrl = "https://modelscope.cn/api/v1/models/MNN/Qwen2-VL-2B-Instruct-MNN/repo?FilePath="
 
     fun isModelDownloaded(): Boolean {
-        return modelFile.exists() && modelFile.length() > 100 * 1024 * 1024 // Al menos 100MB
+        return MnnLlmBridge.validateModelFiles(modelDir) == null
     }
 
     fun deleteModel(): Boolean {
-        if (modelFile.exists()) {
-            return modelFile.delete()
+        if (modelDir.exists()) {
+            return modelDir.deleteRecursively()
         }
         return false
     }
@@ -44,64 +54,79 @@ class ModelDownloader @Inject constructor(
     fun downloadModel(): Flow<DownloadState> = flow {
         emit(DownloadState.Downloading(0f))
 
-        // 1. Verificar espacio disponible en disco (requiere 1.8 GB libres)
-        val requiredSpace = 1.8 * 1024 * 1024 * 1024 // 1.8 GB
+        // Verificar espacio libre
+        val requiredSpace = 1.5 * 1024 * 1024 * 1024 // 1.5 GB
         val usableSpace = context.filesDir.usableSpace
         if (usableSpace < requiredSpace) {
-            emit(DownloadState.Error(Exception("Espacio insuficiente en disco. Se requieren al menos 1.8 GB libres.")))
+            emit(DownloadState.Error(Exception("Espacio insuficiente. Se requieren al menos 1.5 GB libres.")))
             return@flow
         }
 
+        if (!modelDir.exists()) {
+            modelDir.mkdirs()
+        }
+
         try {
-            // Asegurarse de que el archivo temporal o antiguo no interfiera
-            val tempFile = File(context.filesDir, "gemma_model.bin.tmp")
-            if (tempFile.exists()) {
-                tempFile.delete()
-            }
+            for (i in modelFiles.indices) {
+                val fileName = modelFiles[i]
+                val targetFile = File(modelDir, fileName)
+                
+                // Si el archivo ya existe y tiene contenido, omitir descarga
+                if (targetFile.exists() && targetFile.length() > 0) {
+                    emit(DownloadState.Downloading((i + 1) / modelFiles.size.toFloat()))
+                    continue
+                }
 
-            val url = URL(modelUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
-            connection.connect()
+                val tempFile = File(modelDir, "$fileName.tmp")
+                if (tempFile.exists()) {
+                    tempFile.delete()
+                }
 
-            if (connection.responseCode != HttpURLConnection.HTTP_OK) {
-                emit(DownloadState.Error(Exception("Error del servidor: HTTP ${connection.responseCode}")))
-                return@flow
-            }
+                val url = URL(baseUrl + fileName)
+                val connection = url.openConnection() as HttpURLConnection
+                connection.connectTimeout = 15000
+                connection.readTimeout = 15000
+                connection.connect()
 
-            val fileLength = connection.contentLengthLong
-            var totalBytesRead = 0L
+                if (connection.responseCode != HttpURLConnection.HTTP_OK) {
+                    emit(DownloadState.Error(Exception("Error al descargar $fileName: HTTP ${connection.responseCode}")))
+                    return@flow
+                }
 
-            connection.inputStream.use { input ->
-                FileOutputStream(tempFile).use { output ->
-                    val buffer = ByteArray(8192)
-                    var bytesRead: Int
-                    while (input.read(buffer).also { bytesRead = it } != -1) {
-                        // Soporte para cancelación cooperativa de la coroutina
-                        if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
-                            tempFile.delete()
-                            emit(DownloadState.Idle)
-                            return@flow
-                        }
+                val fileLength = connection.contentLengthLong
+                var totalBytesRead = 0L
 
-                        output.write(buffer, 0, bytesRead)
-                        totalBytesRead += bytesRead
-                        if (fileLength > 0) {
-                            emit(DownloadState.Downloading(totalBytesRead.toFloat() / fileLength.toFloat()))
+                connection.inputStream.use { input ->
+                    FileOutputStream(tempFile).use { output ->
+                        val buffer = ByteArray(8192)
+                        var bytesRead: Int
+                        while (input.read(buffer).also { bytesRead = it } != -1) {
+                            if (!kotlinx.coroutines.currentCoroutineContext().isActive) {
+                                tempFile.delete()
+                                emit(DownloadState.Idle)
+                                return@flow
+                            }
+                            output.write(buffer, 0, bytesRead)
+                            totalBytesRead += bytesRead
+                            
+                            if (fileLength > 0) {
+                                val fileProgress = totalBytesRead.toFloat() / fileLength.toFloat()
+                                val totalProgress = (i + fileProgress) / modelFiles.size.toFloat()
+                                emit(DownloadState.Downloading(totalProgress))
+                            }
                         }
                     }
                 }
-            }
 
-            // Descarga completada: renombrar archivo temporal al real
-            if (tempFile.renameTo(modelFile)) {
-                emit(DownloadState.Success)
-            } else {
-                emit(DownloadState.Error(Exception("Error al guardar el archivo del modelo en disco.")))
+                if (!tempFile.renameTo(targetFile)) {
+                    emit(DownloadState.Error(Exception("Error al renombrar archivo temporal: $fileName")))
+                    return@flow
+                }
             }
+            emit(DownloadState.Success)
         } catch (e: Exception) {
             emit(DownloadState.Error(e))
         }
     }.flowOn(Dispatchers.IO)
 }
+

@@ -38,15 +38,5 @@
 -keep class com.ona.miciclo.core.sync.SupabaseSyncManager$* { *; }
 -keep class com.ona.miciclo.core.update.** { *; }
 
-# ── MediaPipe Tasks GenAI ──
--keep class com.google.mediapipe.proto.** { *; }
--keepclassmembers class * extends com.google.protobuf.GeneratedMessageLite { *; }
--keep class com.google.common.flogger.** { *; }
--keep class com.google.mediapipe.** { *; }
--keepclassmembers class com.google.mediapipe.** { *; }
--keepclassmembers,allowoptimization class com.google.mediapipe.** {
-    <methods>;
-}
--dontwarn com.google.mediapipe.proto.CalculatorProfileProto
--dontwarn com.google.mediapipe.framework.image.**
--dontwarn com.google.protobuf.**
+# ── Alibaba MNN Chat ──
+-keep class com.alibaba.mnnllm.android.llm.** { *; }

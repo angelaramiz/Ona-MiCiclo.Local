@@ -51,3 +51,4 @@ build_output.txt
 agentContext/
 AGENTS.md
 .codegraph/
+.agents/
