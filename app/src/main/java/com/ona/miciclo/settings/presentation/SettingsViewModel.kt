@@ -28,7 +28,8 @@ class SettingsViewModel @Inject constructor(
     private val updateManager: com.ona.miciclo.core.update.UpdateManager,
     private val userPreferencesDao: UserPreferencesDao,
     private val syncManager: SupabaseSyncManager,
-    private val modelDownloader: com.ona.miciclo.ai.data.ModelDownloader
+    private val modelDownloader: com.ona.miciclo.ai.data.ModelDownloader,
+    private val inferenceEngine: com.ona.miciclo.ai.domain.IInferenceEngine
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
@@ -214,6 +215,49 @@ class SettingsViewModel @Inject constructor(
 
     fun clearInvitationCode() {
         _uiState.update { it.copy(invitationCode = null) }
+    }
+
+    fun reloadAndInitializeAiModel() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
+            try {
+                inferenceEngine.unloadModel()
+                val result = inferenceEngine.loadModel("")
+                if (result.isSuccess) {
+                    _uiState.update {
+                        it.copy(
+                            isDownloadingAi = false,
+                            isAiModelDownloaded = true,
+                            message = "Modelo inicializado correctamente ✓"
+                        )
+                    }
+                } else {
+                    _uiState.update {
+                        it.copy(
+                            isDownloadingAi = false,
+                            aiDownloadError = "Error de inicialización: ${result.exceptionOrNull()?.message}"
+                        )
+                    }
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    it.copy(
+                        isDownloadingAi = false,
+                        aiDownloadError = "Error: ${e.message}"
+                    )
+                }
+            }
+        }
+    }
+
+    fun repairAiModel() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
+            val deletedAny = modelDownloader.deleteCorruptFiles()
+            val statusMessage = if (deletedAny) "Reparando y descargando archivos corruptos..." else "Verificando archivos de modelo..."
+            _uiState.update { it.copy(message = statusMessage) }
+            downloadAiModel()
+        }
     }
 
     fun signOut() {

@@ -38,6 +38,16 @@ class ModelDownloader @Inject constructor(
         "tokenizer.txt"
     )
 
+    private val expectedMinSizes = mapOf(
+        "config.json" to 500L,                 // 500 B
+        "llm.mnn" to 50 * 1024 * 1024L,        // 50 MB
+        "llm.mnn.weight" to 500 * 1024 * 1024L,// 500 MB
+        "embeddings_bf16.bin" to 50 * 1024 * 1024L, // 50 MB
+        "visual.mnn" to 100 * 1024 * 1024L,     // 100 MB
+        "visual.mnn.weight" to 50 * 1024 * 1024L,   // 50 MB
+        "tokenizer.txt" to 500 * 1024L         // 500 KB
+    )
+
     private val baseUrl = "https://modelscope.cn/api/v1/models/MNN/Qwen2-VL-2B-Instruct-MNN/repo?FilePath="
 
     fun isModelDownloaded(): Boolean {
@@ -49,6 +59,21 @@ class ModelDownloader @Inject constructor(
             return modelDir.deleteRecursively()
         }
         return false
+    }
+
+    fun deleteCorruptFiles(): Boolean {
+        var deletedAny = false
+        if (modelDir.exists() && modelDir.isDirectory) {
+            for (fileName in modelFiles) {
+                val file = File(modelDir, fileName)
+                val minSize = expectedMinSizes[fileName] ?: 0L
+                if (file.exists() && file.length() < minSize) {
+                    file.delete()
+                    deletedAny = true
+                }
+            }
+        }
+        return deletedAny
     }
 
     fun downloadModel(): Flow<DownloadState> = flow {
@@ -70,11 +95,17 @@ class ModelDownloader @Inject constructor(
             for (i in modelFiles.indices) {
                 val fileName = modelFiles[i]
                 val targetFile = File(modelDir, fileName)
+                val minSize = expectedMinSizes[fileName] ?: 0L
                 
-                // Si el archivo ya existe y tiene contenido, omitir descarga
-                if (targetFile.exists() && targetFile.length() > 0) {
+                // Si el archivo ya existe y cumple con el tamaño mínimo, omitir descarga
+                if (targetFile.exists() && targetFile.length() >= minSize) {
                     emit(DownloadState.Downloading((i + 1) / modelFiles.size.toFloat()))
                     continue
+                }
+
+                // Borrar si existía pero incompleto
+                if (targetFile.exists()) {
+                    targetFile.delete()
                 }
 
                 val tempFile = File(modelDir, "$fileName.tmp")
@@ -84,8 +115,8 @@ class ModelDownloader @Inject constructor(
 
                 val url = URL(baseUrl + fileName)
                 val connection = url.openConnection() as HttpURLConnection
-                connection.connectTimeout = 15000
-                connection.readTimeout = 15000
+                connection.connectTimeout = 60000
+                connection.readTimeout = 600000 // 10 minutos para descargas pesadas
                 connection.connect()
 
                 if (connection.responseCode != HttpURLConnection.HTTP_OK) {

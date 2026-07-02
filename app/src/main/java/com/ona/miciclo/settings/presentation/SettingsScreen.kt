@@ -308,6 +308,16 @@ fun SettingsScreen(
                             text = "🗑️ Eliminar modelo de IA",
                             onClick = { viewModel.deleteAiModel() }
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OnaOutlinedButton(
+                            text = "🔄 Reinicializar modelo de IA",
+                            onClick = { viewModel.reloadAndInitializeAiModel() }
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        OnaOutlinedButton(
+                            text = "🔧 Reparar archivos del modelo",
+                            onClick = { viewModel.repairAiModel() }
+                        )
                     } else if (uiState.isDownloadingAi) {
                         Text(
                             text = "Descargando modelo neuronal... ${(uiState.aiDownloadProgress * 100).toInt()}%",
