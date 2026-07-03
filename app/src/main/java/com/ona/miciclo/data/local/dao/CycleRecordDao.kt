@@ -43,6 +43,9 @@ interface CycleRecordDao {
     @Query("DELETE FROM cycle_records WHERE id = :id")
     suspend fun deleteById(id: Long)
 
+    @Query("DELETE FROM cycle_records WHERE fecha_inicio_menstruacion IS NULL OR fecha_inicio_menstruacion LIKE '0000-00-00%'")
+    suspend fun deleteCorruptRecords()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(records: List<CycleRecordEntity>)
 

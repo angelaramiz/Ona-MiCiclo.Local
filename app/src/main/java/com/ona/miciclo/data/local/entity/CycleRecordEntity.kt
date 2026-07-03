@@ -33,7 +33,7 @@ data class CycleRecordEntity(
 
     /** Primer día de sangrado — marca el inicio del ciclo */
     @ColumnInfo(name = "fecha_inicio_menstruacion")
-    val fechaInicioMenstruacion: LocalDate,
+    val fechaInicioMenstruacion: LocalDate?,
 
     /** Días de sangrado activo (1-10 típicamente) */
     @ColumnInfo(name = "duracion_sangrado")

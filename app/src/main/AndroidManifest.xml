@@ -11,6 +11,9 @@
     <!-- Permiso de cámara para escaneo local OCR de tiras de ovulación -->
     <uses-permission android:name="android.permission.CAMERA" />
 
+    <!-- Permisos para notificaciones -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    
     <!-- EXPLICITLY REMOVE tracking/analytics permissions if any library tries to add them -->
     <uses-permission android:name="android.permission.AD_ID" tools:node="remove" />
 

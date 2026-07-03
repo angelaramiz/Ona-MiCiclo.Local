@@ -23,6 +23,9 @@ import javax.inject.Inject
 
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import com.ona.miciclo.core.sync.SupabaseSyncManager
+import com.ona.miciclo.core.notification.NotificationHelper
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 
 @HiltViewModel
 class CalendarViewModel @Inject constructor(
@@ -32,13 +35,16 @@ class CalendarViewModel @Inject constructor(
     private val cycleRepository: CycleRepository,
     private val authRepository: AuthRepository,
     private val userPreferencesDao: UserPreferencesDao,
-    private val syncManager: SupabaseSyncManager
+    private val syncManager: SupabaseSyncManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     private var activeUserId: String = ""
+    private var lastSuggestionId: String? = null
+    private val notificationHelper = NotificationHelper(context)
 
     private val userId: String
         get() = activeUserId.ifEmpty { authRepository.currentUser.value?.uid ?: "" }
@@ -57,6 +63,14 @@ class CalendarViewModel @Inject constructor(
             loadCurrentMonth()
             loadPrediction()
             loadPendingSuggestions()
+            
+            // Cargar sugerencias periódicamente cada 30 segundos si es la usuaria principal
+            if (!isPartner) {
+                while (true) {
+                    kotlinx.coroutines.delay(30000)
+                    loadPendingSuggestions()
+                }
+            }
         }
     }
 
@@ -101,6 +115,10 @@ class CalendarViewModel @Inject constructor(
                 _uiState.update { it.copy(prediction = prediction) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(predictionError = e.message) }
+            } finally {
+                // Determinar si hay datos de ciclo guardados (sirve para mostrar el botón de inicio)
+                val count = cycleRepository.getCycleRecordCount(userId)
+                _uiState.update { it.copy(hasAnyCycleData = count > 0) }
             }
         }
     }
@@ -202,7 +220,13 @@ class CalendarViewModel @Inject constructor(
             try {
                 val suggestions = syncManager.getPendingSuggestions(myUid)
                 if (suggestions.isNotEmpty()) {
-                    _uiState.update { it.copy(pendingSuggestion = suggestions.first()) }
+                    val newSuggestion = suggestions.first()
+                    // Verificar si es una sugerencia nueva para mostrar notificación
+                    if (lastSuggestionId != newSuggestion.id) {
+                        lastSuggestionId = newSuggestion.id
+                        notificationHelper.showPartnerSuggestionNotification(newSuggestion.suggested_date)
+                    }
+                    _uiState.update { it.copy(pendingSuggestion = newSuggestion) }
                 } else {
                     _uiState.update { it.copy(pendingSuggestion = null) }
                 }
@@ -286,5 +310,11 @@ data class CalendarUiState(
     val isReadOnly: Boolean = false,
     val isSelectedDatePeriodStart: Boolean = false,
     val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
-    val message: String? = null
+    val message: String? = null,
+    /**
+     * true  → hay al menos un CycleRecord guardado → predicción disponible o en camino.
+     * false → base de datos vacía (borrado de datos o primera instalación).
+     * Controla la visibilidad del botón de inicialización de calendario.
+     */
+    val hasAnyCycleData: Boolean = true
 )

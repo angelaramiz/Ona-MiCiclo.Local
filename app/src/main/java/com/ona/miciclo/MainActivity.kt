@@ -1,9 +1,12 @@
 package com.ona.miciclo
 
+import android.Manifest
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
@@ -65,9 +68,21 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository
 
+    // Lanzador para solicitar permiso de notificaciones
+    private val requestNotificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { _ ->
+        // El usuario puede aceptar o denegar, no necesitamos hacer nada específico aquí
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        // Solicitar permiso de notificaciones en Android 13+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
 
         lifecycleScope.launch {
             authRepository.currentUser.collect { user ->

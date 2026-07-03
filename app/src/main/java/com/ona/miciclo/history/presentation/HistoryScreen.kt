@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -44,48 +45,98 @@ fun HistoryScreen(
                 .padding(padding)
                 .padding(horizontal = 16.dp)
         ) {
-            // Estadísticas
-            if (uiState.totalCycles > 0) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer
-                    )
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceEvenly
+            when {
+                uiState.isLoading -> {
+                    // Cargando — spinner centrado
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
                     ) {
-                        StatItem("Ciclos", uiState.totalCycles.toString())
-                        uiState.averageCycleLength?.let {
-                            StatItem("Promedio", "$it días")
-                        }
+                        CircularProgressIndicator()
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            text = "Cargando historial...",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
                     }
                 }
-            }
 
-            Spacer(modifier = Modifier.height(8.dp))
+                uiState.error != null -> {
+                    // Error de BD — mostrar mensaje amigable
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(32.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "⚠️",
+                            style = MaterialTheme.typography.displayMedium
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "No se pudo cargar el historial",
+                            style = MaterialTheme.typography.titleMedium,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = uiState.error!!,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
 
-            if (uiState.records.isEmpty()) {
-                Text(
-                    text = "Aún no tienes registros de ciclo.\nMarca tu primer periodo en el calendario para comenzar.",
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(48.dp)
-                )
-            } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    items(uiState.records) { record ->
-                        CycleRecordCard(record = record, dateFormatter = dateFormatter)
+                else -> {
+                    // Estadísticas
+                    if (uiState.totalCycles > 0) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer
+                            )
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(16.dp),
+                                horizontalArrangement = Arrangement.SpaceEvenly
+                            ) {
+                                StatItem("Ciclos", uiState.totalCycles.toString())
+                                uiState.averageCycleLength?.let {
+                                    StatItem("Promedio", "$it días")
+                                }
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    if (uiState.records.isEmpty()) {
+                        Text(
+                            text = "Aún no tienes registros de ciclo.\nMarca tu primer periodo en el calendario para comenzar.",
+                            style = MaterialTheme.typography.bodyLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(48.dp)
+                        )
+                    } else {
+                        LazyColumn(
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            items(uiState.records) { record ->
+                                CycleRecordCard(record = record, dateFormatter = dateFormatter)
+                            }
+                        }
                     }
                 }
             }

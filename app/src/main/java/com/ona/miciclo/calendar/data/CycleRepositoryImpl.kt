@@ -7,8 +7,11 @@ import com.ona.miciclo.data.local.dao.CycleRecordDao
 import com.ona.miciclo.data.local.dao.DailyLogDao
 import com.ona.miciclo.data.mapper.CycleMapper
 import com.ona.miciclo.data.mapper.DailyLogMapper
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -24,6 +27,17 @@ class CycleRepositoryImpl @Inject constructor(
     private val syncManagerProvider: javax.inject.Provider<com.ona.miciclo.core.sync.SupabaseSyncManager>
 ) : CycleRepository {
 
+    init {
+        // Limpiar registros corruptos al inicializar
+        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                cycleRecordDao.deleteCorruptRecords()
+            } catch (e: Exception) {
+                // Ignorar errores de limpieza
+            }
+        }
+    }
+
     // Helper to trigger background sync if user is hostess
     private fun triggerSync(userId: String) {
         syncManagerProvider.get().syncHostessDataToCloud(userId)
@@ -33,12 +47,12 @@ class CycleRepositoryImpl @Inject constructor(
 
     override fun getAllCycleRecords(userId: String): Flow<List<CycleRecord>> {
         return cycleRecordDao.getAllByUser(userId).map { entities ->
-            entities.map { CycleMapper.entityToDomain(it) }
+            entities.mapNotNull { CycleMapper.entityToDomain(it) }
         }
     }
 
     override suspend fun getLastCycleRecords(userId: String, limit: Int): List<CycleRecord> {
-        return cycleRecordDao.getLastRecords(userId, limit).map { CycleMapper.entityToDomain(it) }
+        return cycleRecordDao.getLastRecords(userId, limit).mapNotNull { CycleMapper.entityToDomain(it) }
     }
 
     override suspend fun getLatestCycleRecord(userId: String): CycleRecord? {
@@ -106,7 +120,7 @@ class CycleRepositoryImpl @Inject constructor(
     // ── Bulk operations ──
 
     override suspend fun getAllCycleRecordsSync(userId: String): List<CycleRecord> {
-        return cycleRecordDao.getAllByUserSync(userId).map { CycleMapper.entityToDomain(it) }
+        return cycleRecordDao.getAllByUserSync(userId).mapNotNull { CycleMapper.entityToDomain(it) }
     }
 
     override suspend fun getAllDailyLogsSync(userId: String): List<DailyLog> {

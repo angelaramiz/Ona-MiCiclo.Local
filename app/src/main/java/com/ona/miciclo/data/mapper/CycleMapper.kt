@@ -9,7 +9,12 @@ import com.ona.miciclo.data.local.entity.CycleRecordEntity
  */
 object CycleMapper {
 
-    fun entityToDomain(entity: CycleRecordEntity): CycleRecord {
+    fun entityToDomain(entity: CycleRecordEntity): CycleRecord? {
+        // Verificar que la fecha sea válida
+        if (entity.fechaInicioMenstruacion == null || 
+            entity.fechaInicioMenstruacion.isBefore(java.time.LocalDate.of(1900, 1, 1))) {
+            return null
+        }
         return CycleRecord(
             id = entity.id,
             userId = entity.userId,

@@ -17,6 +17,9 @@ import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -25,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material3.AlertDialog
@@ -45,9 +49,13 @@ import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
 import com.ona.miciclo.calendar.presentation.components.MonthCalendarGrid
 import com.ona.miciclo.core.ui.components.OnaTopBar
 import com.ona.miciclo.ai.presentation.components.AiChatDialog
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CalendarScreen(
     viewModel: CalendarViewModel,
@@ -57,6 +65,7 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var showChat by remember { mutableStateOf(false) }
+    var showInitDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.message) {
@@ -188,24 +197,23 @@ fun CalendarScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 } else {
-                    if (!uiState.isSelectedDatePeriodStart) {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { viewModel.suggestPeriodStart(selectedDate) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Icon(
-                                Icons.Default.Favorite,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = "  Sugerir inicio de periodo",
-                                color = MaterialTheme.colorScheme.primary
-                            )
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
+                    // Para el partner, siempre mostrar botón de sugerir
+                    androidx.compose.material3.OutlinedButton(
+                        onClick = { viewModel.suggestPeriodStart(selectedDate) },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = MaterialTheme.shapes.large
+                    ) {
+                        Icon(
+                            Icons.Default.Favorite,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary
+                        )
+                        Text(
+                            text = "  Sugerir inicio de periodo",
+                            color = MaterialTheme.colorScheme.primary
+                        )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
 
@@ -213,16 +221,46 @@ fun CalendarScreen(
             uiState.prediction?.let { prediction ->
                 CycleSummaryCard(prediction = prediction)
             } ?: run {
-                // Sin predicción — primer uso
-                Text(
-                    text = "¡Bienvenida! Marca el primer día de tu último periodo para comenzar el seguimiento.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(32.dp)
-                )
+                if (!uiState.hasAnyCycleData && !uiState.isReadOnly) {
+                    // Sin datos en DB → sesión nueva o borrado de datos
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Text(
+                            text = "¡Bienvenida! Parece que no hay registros de ciclo guardados.",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        Button(
+                            onClick = { showInitDialog = true },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = MaterialTheme.shapes.large
+                        ) {
+                            Icon(
+                                Icons.Default.WaterDrop,
+                                contentDescription = null
+                            )
+                            Text("  Inicializar seguimiento de ciclo")
+                        }
+                    }
+                } else {
+                    // Sin predicción pero con datos → cargando o error temporal
+                    Text(
+                        text = "Cargando tu ciclo...",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp)
+                    )
+                }
             }
 
             // Leyenda de fases
@@ -277,5 +315,57 @@ fun CalendarScreen(
                 }
             }
         )
+    }
+
+    // ── Diálogo de inicialización de calendario (sin datos en DB) ──
+    if (showInitDialog) {
+        val datePickerState = rememberDatePickerState(
+            initialSelectedDateMillis = System.currentTimeMillis()
+        )
+        DatePickerDialog(
+            onDismissRequest = { showInitDialog = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val millis = datePickerState.selectedDateMillis
+                        if (millis != null) {
+                            val chosenDate = Instant.ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                            viewModel.startNewPeriod(chosenDate)
+                        }
+                        showInitDialog = false
+                    }
+                ) {
+                    Text("Iniciar seguimiento")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showInitDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        ) {
+            DatePicker(
+                state = datePickerState,
+                title = {
+                    Text(
+                        "¿Cuándo comenzó tu último periodo?",
+                        modifier = androidx.compose.ui.Modifier.padding(
+                            start = 24.dp, end = 12.dp, top = 16.dp
+                        )
+                    )
+                },
+                headline = {
+                    Text(
+                        "Selecciona la fecha de inicio",
+                        modifier = androidx.compose.ui.Modifier.padding(
+                            start = 24.dp, end = 12.dp, bottom = 12.dp
+                        )
+                    )
+                },
+                showModeToggle = false
+            )
+        }
     }
 }

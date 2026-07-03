@@ -2,11 +2,11 @@
   "formatVersion": 1,
   "database": {
     "version": 2,
-    "identityHash": "dbbffb7ab4b73e445ef314d2c0d42462",
+    "identityHash": "3f2d652c4cbe3f66866d7fd66f8d29cd",
     "entities": [
       {
         "tableName": "cycle_records",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `user_id` TEXT NOT NULL, `fecha_inicio_menstruacion` TEXT NOT NULL, `duracion_sangrado` INTEGER NOT NULL, `duracion_ciclo` INTEGER NOT NULL, `metodo_registrado` TEXT NOT NULL, `objetivo_usuario` TEXT NOT NULL, `ciclo_confirmado` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `user_id` TEXT NOT NULL, `fecha_inicio_menstruacion` TEXT, `duracion_sangrado` INTEGER NOT NULL, `duracion_ciclo` INTEGER NOT NULL, `metodo_registrado` TEXT NOT NULL, `objetivo_usuario` TEXT NOT NULL, `ciclo_confirmado` INTEGER NOT NULL, `created_at` INTEGER NOT NULL, `updated_at` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -24,7 +24,7 @@
             "fieldPath": "fechaInicioMenstruacion",
             "columnName": "fecha_inicio_menstruacion",
             "affinity": "TEXT",
-            "notNull": true
+            "notNull": false
           },
           {
             "fieldPath": "duracionSangrado",
@@ -270,7 +270,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'dbbffb7ab4b73e445ef314d2c0d42462')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '3f2d652c4cbe3f66866d7fd66f8d29cd')"
     ]
   }
 }

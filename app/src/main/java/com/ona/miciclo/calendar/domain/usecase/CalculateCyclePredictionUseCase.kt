@@ -72,10 +72,18 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         userId: String,
         defaultCycleLength: Int = DEFAULT_CYCLE_LENGTH
     ): CyclePrediction? {
-        val latestRecord = cycleRepository.getLatestCycleRecord(userId)
-            ?: return null // Sin registros, no podemos predecir nada
+        // Obtener y filtrar registros válidos (solo aquellos con fecha válida)
+        val allRecords = cycleRepository.getLastCycleRecords(userId, 100) // Obtener más para filtrar
+        val validRecords = allRecords.filter {
+            it.fechaInicioMenstruacion != null && it.fechaInicioMenstruacion.isAfter(LocalDate.of(1900, 1, 1))
+        }
 
-        val lastRecords = cycleRepository.getLastCycleRecords(userId, MIN_CYCLES_FOR_AVERAGE)
+        if (validRecords.isEmpty()) {
+            return null // Sin registros válidos
+        }
+
+        val latestRecord = validRecords.first()
+        val lastRecords = validRecords.take(MIN_CYCLES_FOR_AVERAGE)
         val today = LocalDate.now()
 
         // ── Paso 1: Determinar duración del ciclo ──
