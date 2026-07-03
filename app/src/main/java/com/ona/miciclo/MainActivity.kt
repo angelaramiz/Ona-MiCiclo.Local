@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CalendarMonth
 import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -51,6 +52,9 @@ import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.firstOrNull
 import dagger.hilt.android.AndroidEntryPoint
+import com.ona.miciclo.data.local.entity.UserPreferencesEntity
+import com.ona.miciclo.dashboard.presentation.DashboardScreen
+import com.ona.miciclo.dashboard.presentation.DashboardViewModel
 
 /**
  * Single Activity entry point.
@@ -93,36 +97,54 @@ class MainActivity : ComponentActivity() {
                     } else {
                         // Sincronizar datos propios (descargar de la nube si existen y subir cambios locales)
                         syncManager.downloadUserDataFromCloud(user.uid)
-                        syncManager.syncHostessDataToCloud(user.uid)
+                        syncManager.startHostessAutoSync(user.uid)
                     }
+                } else {
+                    syncManager.stopAllSync()
                 }
             }
         }
 
         setContent {
             OnaMiCicloTheme {
-                OnaNavigation()
+                OnaNavigation(
+                    userPreferencesDao = userPreferencesDao,
+                    authRepository = authRepository
+                )
             }
         }
     }
 }
 
 @Composable
-fun OnaNavigation() {
+fun OnaNavigation(
+    userPreferencesDao: com.ona.miciclo.data.local.dao.UserPreferencesDao,
+    authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository
+) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val isAuthenticated = authViewModel.isAuthenticated
 
     // Determinar destino inicial
-    val startDestination: Any = if (isAuthenticated) Calendar else Login
+    val startDestination: Any = if (isAuthenticated) Dashboard else Login
+
+    val authUser by authRepository.currentUser.collectAsState()
+    val userId = authUser?.uid ?: ""
+    val prefs: UserPreferencesEntity? by userPreferencesDao.observeByUserId(userId).collectAsState(initial = null)
+    val isPartner = prefs?.userRole == "partner"
 
     // Pantallas que muestran bottom nav
-    val bottomNavRoutes = listOf(Calendar, History, Settings)
+    val bottomNavRoutes = if (isPartner) {
+        listOf(Dashboard, Calendar, Settings)
+    } else {
+        listOf(Dashboard, Calendar, History, Settings)
+    }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val showBottomBar = navBackStackEntry?.destination?.let { destination ->
         bottomNavRoutes.any { route ->
             when (route) {
+                Dashboard -> destination.hasRoute<Dashboard>()
                 Calendar -> destination.hasRoute<Calendar>()
                 History -> destination.hasRoute<History>()
                 Settings -> destination.hasRoute<Settings>()
@@ -135,42 +157,27 @@ fun OnaNavigation() {
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.CalendarMonth, contentDescription = "Calendario") },
-                        label = { Text("Calendario") },
-                        selected = navBackStackEntry?.destination?.hasRoute<Calendar>() == true,
-                        onClick = {
-                            navController.navigate(Calendar) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
+                    bottomNavRoutes.forEach { route ->
+                        val (icon, label, selected) = when (route) {
+                            Dashboard -> Triple(Icons.Default.Home, "Dashboard", navBackStackEntry?.destination?.hasRoute<Dashboard>() == true)
+                            Calendar -> Triple(Icons.Default.CalendarMonth, "Calendario", navBackStackEntry?.destination?.hasRoute<Calendar>() == true)
+                            History -> Triple(Icons.Default.History, "Historial", navBackStackEntry?.destination?.hasRoute<History>() == true)
+                            Settings -> Triple(Icons.Default.Settings, "Config", navBackStackEntry?.destination?.hasRoute<Settings>() == true)
+                            else -> Triple(Icons.Default.Home, "Inicio", false)
                         }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.History, contentDescription = "Historial") },
-                        label = { Text("Historial") },
-                        selected = navBackStackEntry?.destination?.hasRoute<History>() == true,
-                        onClick = {
-                            navController.navigate(History) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
+                        NavigationBarItem(
+                            icon = { Icon(icon, contentDescription = label) },
+                            label = { Text(label) },
+                            selected = selected,
+                            onClick = {
+                                navController.navigate(route) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
                             }
-                        }
-                    )
-                    NavigationBarItem(
-                        icon = { Icon(Icons.Default.Settings, contentDescription = "Configuración") },
-                        label = { Text("Config") },
-                        selected = navBackStackEntry?.destination?.hasRoute<Settings>() == true,
-                        onClick = {
-                            navController.navigate(Settings) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        }
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -232,7 +239,7 @@ fun OnaNavigation() {
                 CycleSetupScreen(
                     viewModel = viewModel,
                     onSetupComplete = {
-                        navController.navigate(Calendar) {
+                        navController.navigate(Dashboard) {
                             popUpTo(CycleSetup) { inclusive = true }
                         }
                     }
@@ -240,6 +247,11 @@ fun OnaNavigation() {
             }
 
             // ── Main screens ──
+            composable<Dashboard> {
+                val viewModel: DashboardViewModel = hiltViewModel()
+                DashboardScreen(viewModel = viewModel)
+            }
+
             composable<Calendar> {
                 val viewModel: CalendarViewModel = hiltViewModel()
                 CalendarScreen(

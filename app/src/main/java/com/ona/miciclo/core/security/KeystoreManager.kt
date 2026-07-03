@@ -39,6 +39,8 @@ class KeystoreManager @Inject constructor(
         private const val PREFS_FILE = "ona_encrypted_prefs"
         private const val PREF_KEY_PASSPHRASE = "db_passphrase_encrypted"
         private const val PREF_KEY_IV = "db_passphrase_iv"
+        private const val PREF_KEY_SYNC_PASSPHRASE = "sync_passphrase_encrypted"
+        private const val PREF_KEY_SYNC_IV = "sync_passphrase_iv"
         private const val PASSPHRASE_LENGTH = 32 // 256 bits
     }
 
@@ -93,6 +95,14 @@ class KeystoreManager @Inject constructor(
         storePassphrase(passphrase)
     }
 
+    fun saveSyncPassphrase(passphrase: ByteArray) {
+        storePassphrase(passphrase, PREF_KEY_SYNC_PASSPHRASE, PREF_KEY_SYNC_IV)
+    }
+
+    fun getSyncPassphrase(): ByteArray? {
+        return retrievePassphrase(PREF_KEY_SYNC_PASSPHRASE, PREF_KEY_SYNC_IV)
+    }
+
     /**
      * OPERACIÓN DESTRUCTIVA: Elimina la passphrase almacenada.
      * Esto hace que la base de datos encriptada sea irrecuperable.
@@ -123,7 +133,6 @@ class KeystoreManager @Inject constructor(
     }
 
     private fun storePassphrase(passphrase: ByteArray) {
-        // Encriptar la passphrase con la clave del Keystore
         val secretKey = getOrCreateKeystoreKey()
         val cipher = Cipher.getInstance("AES/GCM/NoPadding")
         cipher.init(Cipher.ENCRYPT_MODE, secretKey)
@@ -131,16 +140,33 @@ class KeystoreManager @Inject constructor(
         val encryptedData = cipher.doFinal(passphrase)
         val iv = cipher.iv
 
-        // Guardar en EncryptedSharedPreferences (doble capa de encriptación)
         encryptedPrefs.edit()
             .putString(PREF_KEY_PASSPHRASE, android.util.Base64.encodeToString(encryptedData, android.util.Base64.NO_WRAP))
             .putString(PREF_KEY_IV, android.util.Base64.encodeToString(iv, android.util.Base64.NO_WRAP))
             .apply()
     }
 
+    private fun storePassphrase(passphrase: ByteArray, passphraseKey: String, ivKey: String) {
+        val secretKey = getOrCreateKeystoreKey()
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey)
+
+        val encryptedData = cipher.doFinal(passphrase)
+        val iv = cipher.iv
+
+        encryptedPrefs.edit()
+            .putString(passphraseKey, android.util.Base64.encodeToString(encryptedData, android.util.Base64.NO_WRAP))
+            .putString(ivKey, android.util.Base64.encodeToString(iv, android.util.Base64.NO_WRAP))
+            .apply()
+    }
+
     private fun retrievePassphrase(): ByteArray? {
-        val encryptedBase64 = encryptedPrefs.getString(PREF_KEY_PASSPHRASE, null) ?: return null
-        val ivBase64 = encryptedPrefs.getString(PREF_KEY_IV, null) ?: return null
+        return retrievePassphrase(PREF_KEY_PASSPHRASE, PREF_KEY_IV)
+    }
+
+    private fun retrievePassphrase(passphraseKey: String, ivKey: String): ByteArray? {
+        val encryptedBase64 = encryptedPrefs.getString(passphraseKey, null) ?: return null
+        val ivBase64 = encryptedPrefs.getString(ivKey, null) ?: return null
 
         return try {
             val encryptedData = android.util.Base64.decode(encryptedBase64, android.util.Base64.NO_WRAP)
@@ -151,8 +177,6 @@ class KeystoreManager @Inject constructor(
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             cipher.doFinal(encryptedData)
         } catch (e: Exception) {
-            // SEGURIDAD: Si no podemos desencriptar, la passphrase se considera perdida.
-            // El usuario deberá usar el flujo de recuperación (import desde backup).
             null
         }
     }

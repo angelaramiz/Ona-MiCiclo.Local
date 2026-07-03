@@ -13,6 +13,8 @@ import com.ona.miciclo.data.local.entity.DailyLogEntity
 import com.ona.miciclo.data.local.entity.UserPreferencesEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
@@ -37,6 +39,8 @@ class SupabaseSyncManager(
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
     private val gson = Gson()
+    private var partnerSyncJob: Job? = null
+    private var hostessSyncJob: Job? = null
 
     // Credenciales de Supabase
     private val supabaseUrl = "https://cjwozffwcqqiwsmjgjjo.supabase.co"
@@ -164,18 +168,16 @@ class SupabaseSyncManager(
         val decryptedPassphraseHex = CryptoUtils.decryptJson(encryptedBytes, code.uppercase())
         val dbPassphrase = Base64.decode(decryptedPassphraseHex, Base64.NO_WRAP)
 
-        // 2. Guardar la passphrase de la anfitriona en el Keystore del Partner
-        // A partir de ahora, la BD local del Partner estará cifrada con la misma clave.
-        keystoreManager.saveDatabasePassphrase(dbPassphrase)
+        keystoreManager.saveSyncPassphrase(dbPassphrase)
 
-        // 3. Registrar relación en Supabase
+        // 2. Registrar relación en Supabase
         val partnerRow = UserRow(id = partnerId, role = "partner", linked_user_id = invitation.hostess_id)
         performRequest("POST", "users", gson.toJson(partnerRow))
 
         val hostessRow = UserRow(id = invitation.hostess_id, role = "hostess", linked_user_id = partnerId)
         performRequest("POST", "users", gson.toJson(hostessRow))
 
-        // 4. Registrar localmente
+        // 3. Registrar localmente
         val currentPrefs = userPreferencesDao.getByUserId(partnerId)
         if (currentPrefs != null) {
             userPreferencesDao.insertOrUpdate(currentPrefs.copy(userRole = "partner", linkedUserId = invitation.hostess_id))
@@ -191,42 +193,41 @@ class SupabaseSyncManager(
      */
     fun syncHostessDataToCloud(hostessId: String) {
         scope.launch {
-            try {
-                val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
-                val encryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
+            runCatching { syncHostessDataToCloudOnce(hostessId) }
+                .onFailure { it.printStackTrace() }
+        }
+    }
 
-                // 1. Sincronizar Ciclos encriptados
-                val cycles = cycleRecordDao.getAllByUserSync(hostessId)
-                for (cycle in cycles) {
-                    val plainJson = gson.toJson(cycle)
-                    val encryptedBytes = CryptoUtils.encryptJson(plainJson, encryptionKey)
-                    val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
+    private suspend fun syncHostessDataToCloudOnce(hostessId: String) {
+        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+        val encryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
 
-                    val row = EncryptedPayloadRow(
-                        id = cycle.id.toString(),
-                        user_id = hostessId,
-                        encrypted_payload = base64Payload
-                    )
-                    performRequest("POST", "cycles", gson.toJson(row))
-                }
+        val cycles = cycleRecordDao.getAllByUserSync(hostessId)
+        for (cycle in cycles) {
+            val plainJson = gson.toJson(cycle)
+            val encryptedBytes = CryptoUtils.encryptJson(plainJson, encryptionKey)
+            val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
 
-                // 2. Sincronizar Logs Diarios encriptados
-                val logs = dailyLogDao.getAllByUserSync(hostessId)
-                for (log in logs) {
-                    val plainJson = gson.toJson(log)
-                    val encryptedBytes = CryptoUtils.encryptJson(plainJson, encryptionKey)
-                    val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
+            val row = EncryptedPayloadRow(
+                id = cycle.id.toString(),
+                user_id = hostessId,
+                encrypted_payload = base64Payload
+            )
+            performRequest("POST", "cycles", gson.toJson(row))
+        }
 
-                    val row = EncryptedPayloadRow(
-                        id = log.fecha.toString(), // Usamos la fecha como ID de fila única
-                        user_id = hostessId,
-                        encrypted_payload = base64Payload
-                    )
-                    performRequest("POST", "daily_logs", gson.toJson(row))
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
+        val logs = dailyLogDao.getAllByUserSync(hostessId)
+        for (log in logs) {
+            val plainJson = gson.toJson(log)
+            val encryptedBytes = CryptoUtils.encryptJson(plainJson, encryptionKey)
+            val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
+
+            val row = EncryptedPayloadRow(
+                id = log.fecha.toString(),
+                user_id = hostessId,
+                encrypted_payload = base64Payload
+            )
+            performRequest("POST", "daily_logs", gson.toJson(row))
         }
     }
 
@@ -284,34 +285,70 @@ class SupabaseSyncManager(
      * Descarga periódica y desencriptación para la base de datos de la pareja.
      */
     fun startPartnerSyncListener(partnerId: String, hostessId: String) {
-        scope.launch {
-            try {
-                val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
-                val decryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
+        partnerSyncJob?.cancel()
+        partnerSyncJob = scope.launch {
+            while (true) {
+                try {
+                    val syncPassphrase = keystoreManager.getSyncPassphrase()
+                        ?: keystoreManager.getOrCreateDatabasePassphrase()
+                    val decryptionKey = Base64.encodeToString(syncPassphrase, Base64.NO_WRAP)
 
-                // 1. Descargar y desencriptar Ciclos
-                val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
-                val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
-                val cycleEntities = cyclesRows.map { row ->
-                    val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                    val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                    gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
-                }
-                cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
+                    val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
+                    val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
+                    val cycleEntities = cyclesRows.mapNotNull { row ->
+                        try {
+                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                            gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (cycleEntities.isNotEmpty()) {
+                        cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
+                    }
 
-                // 2. Descargar y desencriptar Logs Diarios
-                val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
-                val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
-                val logEntities = logsRows.map { row ->
-                    val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                    val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                    gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = hostessId)
+                    val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
+                    val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
+                    val logEntities = logsRows.mapNotNull { row ->
+                        try {
+                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                            gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = hostessId)
+                        } catch (e: Exception) {
+                            null
+                        }
+                    }
+                    if (logEntities.isNotEmpty()) {
+                        dailyLogDao.clearAndInsertLogs(hostessId, logEntities)
+                    }
+                } catch (e: Exception) {
+                    e.printStackTrace()
                 }
-                dailyLogDao.clearAndInsertLogs(hostessId, logEntities)
-            } catch (e: Exception) {
-                e.printStackTrace()
+                delay(15000)
             }
         }
+    }
+
+    fun startHostessAutoSync(hostessId: String) {
+        hostessSyncJob?.cancel()
+        hostessSyncJob = scope.launch {
+            while (true) {
+                try {
+                    syncHostessDataToCloudOnce(hostessId)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(15000)
+            }
+        }
+    }
+
+    fun stopAllSync() {
+        partnerSyncJob?.cancel()
+        partnerSyncJob = null
+        hostessSyncJob?.cancel()
+        hostessSyncJob = null
     }
 
     /**

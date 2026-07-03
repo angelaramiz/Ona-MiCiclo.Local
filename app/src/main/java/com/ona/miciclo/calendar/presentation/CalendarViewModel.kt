@@ -153,6 +153,10 @@ class CalendarViewModel @Inject constructor(
                     _uiState.update { it.copy(isSaving = false, saveSuccess = true) }
                     // Recargar predicción después de guardar
                     loadPrediction()
+                    val myUid = authRepository.currentUser.value?.uid ?: ""
+                    if (!_uiState.value.isReadOnly && myUid.isNotEmpty()) {
+                        syncManager.syncHostessDataToCloud(myUid)
+                    }
                 }
                 .onFailure { error ->
                     _uiState.update { it.copy(isSaving = false, error = error.message) }
@@ -194,6 +198,10 @@ class CalendarViewModel @Inject constructor(
                 loadPrediction()
                 val ym = _uiState.value.currentYearMonth
                 loadMonth(ym.year, ym.monthValue)
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                if (!_uiState.value.isReadOnly && myUid.isNotEmpty()) {
+                    syncManager.syncHostessDataToCloud(myUid)
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -270,6 +278,10 @@ class CalendarViewModel @Inject constructor(
                     val ym = _uiState.value.currentYearMonth
                     loadMonth(ym.year, ym.monthValue)
                     selectDate(date)
+                    val myUid = authRepository.currentUser.value?.uid ?: ""
+                    if (!_uiState.value.isReadOnly && myUid.isNotEmpty()) {
+                        syncManager.syncHostessDataToCloud(myUid)
+                    }
                 }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = e.message) }

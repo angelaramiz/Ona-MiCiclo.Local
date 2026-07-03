@@ -17,6 +17,7 @@ import kotlinx.serialization.Serializable
 @Serializable data object CycleSetup
 
 // ── Main (con bottom nav) ──
+@Serializable data object Dashboard
 @Serializable data object Calendar
 @Serializable data class DailyLogRoute(val date: String)
 @Serializable data object History
