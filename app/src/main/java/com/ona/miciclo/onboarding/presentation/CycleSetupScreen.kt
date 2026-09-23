@@ -29,7 +29,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
-import java.time.LocalDate
 
 @Composable
 fun CycleSetupScreen(

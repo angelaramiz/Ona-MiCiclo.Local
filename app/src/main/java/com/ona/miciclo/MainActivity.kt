@@ -21,7 +21,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -50,7 +49,6 @@ import com.ona.miciclo.settings.presentation.SettingsViewModel
 import javax.inject.Inject
 import androidx.lifecycle.lifecycleScope
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.flow.firstOrNull
 import dagger.hilt.android.AndroidEntryPoint
 import com.ona.miciclo.data.local.entity.UserPreferencesEntity
 import com.ona.miciclo.dashboard.presentation.DashboardScreen
@@ -83,6 +81,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        // #region debug-point A:activity-oncreate
+        com.ona.miciclo.core.debug.DebugTelemetry.emit(
+            hypothesisId = "A",
+            location = "MainActivity:onCreate",
+            msg = "[DEBUG] MainActivity iniciada",
+            data = org.json.JSONObject().put("sdk", Build.VERSION.SDK_INT)
+        )
+        // #endregion
+
         // Solicitar permiso de notificaciones en Android 13+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
@@ -92,6 +99,17 @@ class MainActivity : ComponentActivity() {
             authRepository.currentUser.collect { user ->
                 if (user != null) {
                     val prefs = userPreferencesDao.getByUserId(user.uid)
+                    // #region debug-point C:startup-user-state
+                    com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                        hypothesisId = "C",
+                        location = "MainActivity:authCollect",
+                        msg = "[DEBUG] Estado persistido al arrancar",
+                        data = org.json.JSONObject()
+                            .put("uid", user.uid)
+                            .put("role", prefs?.userRole ?: "null")
+                            .put("linkedUserId", prefs?.linkedUserId ?: "null")
+                    )
+                    // #endregion
                     if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
                         syncManager.startPartnerSyncListener(user.uid, prefs.linkedUserId)
                     } else {

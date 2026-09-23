@@ -46,11 +46,15 @@ class UpdateManager(private val context: Context) {
      */
     suspend fun checkForUpdates(): UpdateResult = withContext(Dispatchers.IO) {
         try {
-            val url = URL(updateUrl)
-            val connection = url.openConnection() as HttpURLConnection
-            connection.connectTimeout = 10000
-            connection.readTimeout = 10000
-            connection.requestMethod = "GET"
+            val url = URL("$updateUrl?ts=${System.currentTimeMillis()}")
+            val connection = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 10000
+                readTimeout = 10000
+                requestMethod = "GET"
+                useCaches = false
+                setRequestProperty("Cache-Control", "no-cache")
+                setRequestProperty("Pragma", "no-cache")
+            }
 
             if (connection.responseCode == HttpURLConnection.HTTP_OK) {
                 val jsonString = connection.inputStream.bufferedReader().use { it.readText() }

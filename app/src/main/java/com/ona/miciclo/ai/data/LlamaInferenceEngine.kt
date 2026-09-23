@@ -10,7 +10,6 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -45,16 +44,7 @@ class LlamaInferenceEngine @Inject constructor(
                 return@withContext Result.failure(Exception(validateError))
             }
 
-            val configFile = File(modelDownloader.modelDir, "config.json")
-            val mmapDir = File(context.cacheDir, "mnn_mmap").apply { mkdirs() }
-            val extraConfig = """{"is_r1":false,"mmap_dir":"${mmapDir.absolutePath}","keep_history":false}"""
-
-            sessionHandle = LlmSession.initNative(
-                configFile.absolutePath,
-                null,
-                configFile.readText(),
-                extraConfig
-            )
+            sessionHandle = openNativeSession()
 
             if (sessionHandle != 0L) {
                 isLoaded = true
@@ -67,23 +57,31 @@ class LlamaInferenceEngine @Inject constructor(
         }
     }
 
+    /**
+     * Abre una sesión nativa MNN y devuelve su handle (0 si falla).
+     * Consolida el bloque de inicialización antes duplicado en
+     * loadModel() y ensureModelLoaded().
+     */
+    private fun openNativeSession(): Long {
+        val configFile = File(modelDownloader.modelDir, "config.json")
+        val mmapDir = File(context.cacheDir, "mnn_mmap").apply { mkdirs() }
+        val extraConfig = """{"is_r1":false,"mmap_dir":"${mmapDir.absolutePath}","keep_history":false}"""
+        return LlmSession.initNative(
+            configFile.absolutePath,
+            null,
+            configFile.readText(),
+            extraConfig
+        )
+    }
+
     private fun ensureModelLoaded(): Boolean {
         if (sessionHandle != 0L) return true
         if (modelDownloader.isModelDownloaded()) {
             val loadedLib = MnnLlmBridge.tryLoadLibraries()
             if (!loadedLib) return false
-            
-            return try {
-                val configFile = File(modelDownloader.modelDir, "config.json")
-                val mmapDir = File(context.cacheDir, "mnn_mmap").apply { mkdirs() }
-                val extraConfig = """{"is_r1":false,"mmap_dir":"${mmapDir.absolutePath}","keep_history":false}"""
 
-                sessionHandle = LlmSession.initNative(
-                    configFile.absolutePath,
-                    null,
-                    configFile.readText(),
-                    extraConfig
-                )
+            return try {
+                sessionHandle = openNativeSession()
                 isLoaded = sessionHandle != 0L
                 isLoaded
             } catch (e: Exception) {

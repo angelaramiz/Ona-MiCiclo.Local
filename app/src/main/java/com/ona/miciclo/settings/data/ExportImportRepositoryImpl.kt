@@ -4,6 +4,7 @@ import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.ona.miciclo.calendar.domain.repository.CycleRepository
 import com.ona.miciclo.core.security.CryptoUtils
+import com.ona.miciclo.data.local.LocalDateAdapter
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import com.ona.miciclo.settings.domain.repository.ExportImportRepository
 import java.time.LocalDate
@@ -112,21 +113,4 @@ private data class ExportDataModel(
     val preferences: com.ona.miciclo.data.local.entity.UserPreferencesEntity? = null
 )
 
-/**
- * Gson adapter for LocalDate serialization.
- */
-private class LocalDateAdapter : com.google.gson.TypeAdapter<LocalDate>() {
-    override fun write(out: com.google.gson.stream.JsonWriter, value: LocalDate?) {
-        if (value == null) out.nullValue()
-        else out.value(value.toString())
-    }
-
-    override fun read(`in`: com.google.gson.stream.JsonReader): LocalDate? {
-        return if (`in`.peek() == com.google.gson.stream.JsonToken.NULL) {
-            `in`.nextNull()
-            null
-        } else {
-            LocalDate.parse(`in`.nextString())
-        }
-    }
-}
+// LocalDateAdapter vive ahora en com.ona.miciclo.data.local (compartido con el sync).

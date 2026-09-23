@@ -28,13 +28,10 @@ import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.domain.model.CyclePhase
 import com.ona.miciclo.calendar.domain.model.CyclePrediction
 import com.ona.miciclo.calendar.domain.model.DailyLog
-import com.ona.miciclo.calendar.domain.model.FlowLevel
 import com.ona.miciclo.core.ui.theme.*
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.YearMonth
-import java.time.format.TextStyle
-import java.util.Locale
 
 /**
  * Grid de calendario mensual 7×6 con colores por fase del ciclo.
@@ -142,7 +139,6 @@ fun DayCell(
     )
     val textColor = when {
         isSelected -> MaterialTheme.colorScheme.onPrimary
-        date.monthValue != date.monthValue -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f)
         else -> MaterialTheme.colorScheme.onSurface
     }
 

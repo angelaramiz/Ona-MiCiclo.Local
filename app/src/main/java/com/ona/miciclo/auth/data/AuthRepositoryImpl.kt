@@ -5,11 +5,9 @@ import com.google.firebase.auth.GoogleAuthProvider
 import com.ona.miciclo.auth.domain.model.AuthProvider
 import com.ona.miciclo.auth.domain.model.AuthUser
 import com.ona.miciclo.auth.domain.repository.AuthRepository
-import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton

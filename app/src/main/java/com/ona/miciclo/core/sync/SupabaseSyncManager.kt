@@ -2,8 +2,10 @@ package com.ona.miciclo.core.sync
 
 import android.util.Base64
 import com.google.gson.Gson
+import com.google.gson.GsonBuilder
 import com.ona.miciclo.core.security.CryptoUtils
 import com.ona.miciclo.core.security.KeystoreManager
+import com.ona.miciclo.data.local.LocalDateAdapter
 import com.ona.miciclo.data.local.OnaDatabase
 import com.ona.miciclo.data.local.dao.CycleRecordDao
 import com.ona.miciclo.data.local.dao.DailyLogDao
@@ -15,15 +17,24 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
 import kotlinx.coroutines.withContext
 import java.io.OutputStreamWriter
 import java.net.HttpURLConnection
 import java.net.URL
 import java.time.LocalDate
 import java.util.UUID
+
+/**
+ * Gson del sync de pareja: registra LocalDateAdapter para que las fechas de
+ * CycleRecordEntity/DailyLogEntity viajen como ISO string ("2026-09-15").
+ * Sin el adapter, Gson serializa LocalDate por reflexión y el partner no puede
+ * reconstruir los datos (ver SyncSerializationTest).
+ */
+internal fun createSyncGson(): Gson =
+    GsonBuilder()
+        .registerTypeAdapter(LocalDate::class.java, LocalDateAdapter())
+        .create()
 
 /**
  * Gestor de sincronización Zero-Knowledge utilizando Supabase REST API.
@@ -38,7 +49,7 @@ class SupabaseSyncManager(
     private val userPreferencesDao: UserPreferencesDao
 ) {
     private val scope = CoroutineScope(Dispatchers.IO)
-    private val gson = Gson()
+    private val gson = createSyncGson()
     private var partnerSyncJob: Job? = null
     private var hostessSyncJob: Job? = null
 
@@ -285,7 +296,12 @@ class SupabaseSyncManager(
      * Descarga periódica y desencriptación para la base de datos de la pareja.
      */
     fun startPartnerSyncListener(partnerId: String, hostessId: String) {
+        // Exclusión mutua: solo un modo de sync a la vez. Al cambiar de cuenta
+        // (hostess<->partner) el job anterior quedaba vivo y ambos loops (upload +
+        // delete/insert cada 15s) corrían concurrentes sobre la misma DB cifrada.
         partnerSyncJob?.cancel()
+        hostessSyncJob?.cancel()
+        hostessSyncJob = null
         partnerSyncJob = scope.launch {
             while (true) {
                 try {
@@ -295,15 +311,37 @@ class SupabaseSyncManager(
 
                     val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
                     val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
+                    // #region debug-session: partner-sync-diag
+                    var decryptOk = 0
+                    var decryptFail = 0
+                    // #endregion
                     val cycleEntities = cyclesRows.mapNotNull { row ->
                         try {
                             val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
                             val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                            // #region debug-session: partner-sync-diag
+                            decryptOk++
+                            // #endregion
                             gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
                         } catch (e: Exception) {
+                            // #region debug-session: partner-sync-diag
+                            decryptFail++
+                            // #endregion
                             null
                         }
                     }
+                    // #region debug-session: partner-sync-diag
+                    com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                        hypothesisId = "E",
+                        location = "SupabaseSyncManager:startPartnerSyncListener",
+                        msg = "[DEBUG] Sync partner ciclos",
+                        data = org.json.JSONObject()
+                            .put("fetched", cyclesRows.size)
+                            .put("decryptOk", decryptOk)
+                            .put("decryptFail", decryptFail)
+                            .put("toInsert", cycleEntities.size)
+                    )
+                    // #endregion
                     if (cycleEntities.isNotEmpty()) {
                         cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
                     }
@@ -331,7 +369,10 @@ class SupabaseSyncManager(
     }
 
     fun startHostessAutoSync(hostessId: String) {
+        // Exclusión mutua: ver comentario en startPartnerSyncListener.
         hostessSyncJob?.cancel()
+        partnerSyncJob?.cancel()
+        partnerSyncJob = null
         hostessSyncJob = scope.launch {
             while (true) {
                 try {

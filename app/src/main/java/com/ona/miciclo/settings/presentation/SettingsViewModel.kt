@@ -16,7 +16,6 @@ import com.ona.miciclo.core.sync.SupabaseSyncManager
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 
 @HiltViewModel

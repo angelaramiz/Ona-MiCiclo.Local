@@ -69,13 +69,49 @@ class KeystoreManager @Inject constructor(
      * @return ByteArray de 32 bytes para usar como passphrase de SQLCipher
      */
     fun getOrCreateDatabasePassphrase(): ByteArray {
+        val hasStored = encryptedPrefs.contains(PREF_KEY_PASSPHRASE)
         val existingPassphrase = retrievePassphrase()
         if (existingPassphrase != null) {
+            // #region debug-point B:keystore-existing-passphrase
+            com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                hypothesisId = "B",
+                location = "KeystoreManager:getOrCreateDatabasePassphrase",
+                msg = "[DEBUG] Passphrase existente recuperada",
+                data = org.json.JSONObject().put("length", existingPassphrase.size)
+            )
+            // #endregion
             return existingPassphrase
         }
 
-        // Generar nueva passphrase aleatoria
+        if (hasStored) {
+            // FAIL-FAST: hay una passphrase almacenada pero no se pudo desencriptar.
+            // Generar una nueva la INVALIDARÍA (la DB seguiría cifrada con la anterior).
+            // Se preserva la clave almacenada y se falla con un error claro en vez de
+            // provocar un SQLiteException críptico más tarde.
+            // #region debug-point B:keystore-decrypt-fatal
+            com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                hypothesisId = "B",
+                location = "KeystoreManager:getOrCreateDatabasePassphrase",
+                msg = "[DEBUG] FATAL: passphrase almacenada ilegible, no se regenera",
+                data = org.json.JSONObject().put("reason", "stored-but-undecryptable")
+            )
+            // #endregion
+            throw IllegalStateException(
+                "No se pudo desencriptar la passphrase de la base de datos. " +
+                "La clave almacenada se conserva; reintenta o restaura desde backup."
+            )
+        }
+
+        // Primera ejecución: no hay passphrase almacenada, generar una nueva.
         val newPassphrase = generateRandomPassphrase()
+        // #region debug-point B:keystore-new-passphrase
+        com.ona.miciclo.core.debug.DebugTelemetry.emit(
+            hypothesisId = "B",
+            location = "KeystoreManager:getOrCreateDatabasePassphrase",
+            msg = "[DEBUG] Se genero una passphrase nueva",
+            data = org.json.JSONObject().put("reason", "first-run")
+        )
+        // #endregion
         storePassphrase(newPassphrase)
         return newPassphrase
     }
@@ -177,6 +213,16 @@ class KeystoreManager @Inject constructor(
             cipher.init(Cipher.DECRYPT_MODE, secretKey, GCMParameterSpec(128, iv))
             cipher.doFinal(encryptedData)
         } catch (e: Exception) {
+            // #region debug-point B:keystore-retrieve-failure
+            com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                hypothesisId = "B",
+                location = "KeystoreManager:retrievePassphrase",
+                msg = "[DEBUG] Fallo al desencriptar passphrase",
+                data = org.json.JSONObject()
+                    .put("errorType", e::class.java.simpleName)
+                    .put("message", e.message ?: "null")
+            )
+            // #endregion
             null
         }
     }

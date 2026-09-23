@@ -34,6 +34,15 @@ object DatabaseModule {
         @ApplicationContext context: Context,
         keystoreManager: KeystoreManager
     ): OnaDatabase {
+        // #region debug-point B:db-open-start
+        com.ona.miciclo.core.debug.DebugTelemetry.emit(
+            hypothesisId = "B",
+            location = "DatabaseModule:provideDatabase",
+            msg = "[DEBUG] Iniciando apertura de base cifrada",
+            data = org.json.JSONObject().put("dbName", "ona_miciclo.db")
+        )
+        // #endregion
+
         // SEGURIDAD: Obtener passphrase del Keystore.
         // Si es la primera vez, se genera una nueva passphrase aleatoria de 256 bits.
         // Si ya existe, se desencripta la passphrase almacenada.
@@ -49,6 +58,10 @@ object DatabaseModule {
             "ona_miciclo.db"
         )
             .openHelperFactory(factory) // ← Aquí se activa la encriptación
+            // Robustez ante kills del proceso (OTA update, crash) durante escrituras del sync:
+            // el modo WAL deja -wal/-shm que pueden quedar ilegibles y la DB solo se
+            // recupera borrando datos. TRUNCATE (rollback journal) no deja WAL huérfano.
+            .setJournalMode(androidx.room.RoomDatabase.JournalMode.TRUNCATE)
             .fallbackToDestructiveMigration() // En Fase 1, si hay conflicto de esquema, recrear
             .build()
     }

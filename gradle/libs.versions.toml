@@ -46,7 +46,6 @@ securityCrypto = "1.1.0-alpha06"
 # JSON
 gson = "2.11.0"
 camerax = "1.4.0"
-coil = "2.7.0"
 mediapipeGenai = "0.10.27"
 
 # Testing
@@ -97,13 +96,9 @@ androidx-camera-camera2 = { group = "androidx.camera", name = "camera-camera2", 
 androidx-camera-lifecycle = { group = "androidx.camera", name = "camera-lifecycle", version.ref = "camerax" }
 androidx-camera-view = { group = "androidx.camera", name = "camera-view", version.ref = "camerax" }
 
-# Coil
-coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
-
-# Firebase Auth & Firestore
+# Firebase Auth ONLY (zero analytics, zero Firestore)
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
-firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 
 # Credential Manager (replaces deprecated GoogleSignInClient)
 androidx-credentials = { group = "androidx.credentials", name = "credentials", version.ref = "credentials" }

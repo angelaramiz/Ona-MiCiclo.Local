@@ -3,7 +3,6 @@ package com.ona.miciclo.ai.presentation
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ona.miciclo.ai.domain.IInferenceEngine
-import com.ona.miciclo.ai.domain.PromptBuilder
 import com.ona.miciclo.auth.domain.repository.AuthRepository
 import com.ona.miciclo.calendar.domain.repository.CycleRepository
 import com.ona.miciclo.data.local.dao.UserPreferencesDao

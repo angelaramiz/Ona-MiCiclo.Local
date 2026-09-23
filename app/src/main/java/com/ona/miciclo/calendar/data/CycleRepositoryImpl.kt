@@ -29,7 +29,7 @@ class CycleRepositoryImpl @Inject constructor(
 
     init {
         // Limpiar registros corruptos al inicializar
-        kotlinx.coroutines.GlobalScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+        GlobalScope.launch(Dispatchers.IO) {
             try {
                 cycleRecordDao.deleteCorruptRecords()
             } catch (e: Exception) {

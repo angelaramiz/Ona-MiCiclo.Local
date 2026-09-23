@@ -26,6 +26,13 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
 
+        // #region debug-session: app-update-crash
+        // Telemetría temporal para la sesión de debug. Desactivada para producción.
+        // Para reactivar durante debug, poner en "true" y ajustar la URL al host LAN.
+        buildConfigField("boolean", "TELEMETRY_ENABLED", "false")
+        buildConfigField("String", "TELEMETRY_URL", "\"http://192.168.10.120:7777/event\"")
+        // #endregion
+
         ndk {
             abiFilters += "arm64-v8a"
         }
@@ -107,10 +114,9 @@ dependencies {
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
 
-    // ── Firebase Auth & Firestore (for Partner linking) ──
+    // ── Firebase Auth ONLY (zero analytics, zero Firestore) ──
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.auth)
-    implementation(libs.firebase.firestore)
 
     // ── Credential Manager (modern Google Sign-In) ──
     implementation(libs.androidx.credentials)
@@ -136,9 +142,6 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation("com.google.guava:guava:31.1-android")
 
-    // ── Coil (Image loading) ──
-    implementation(libs.coil.compose)
-
     // ── Testing ──
     testImplementation(libs.junit)
     testImplementation(libs.mockk)
@@ -151,13 +154,6 @@ dependencies {
     androidTestImplementation(libs.androidx.room.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
-
-
-
-
-
-
-
 
 
 

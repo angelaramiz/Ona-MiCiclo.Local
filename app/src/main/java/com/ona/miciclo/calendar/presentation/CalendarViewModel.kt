@@ -59,6 +59,18 @@ class CalendarViewModel @Inject constructor(
             } else {
                 myUid
             }
+            // #region debug-point D:calendar-role-resolution
+            com.ona.miciclo.core.debug.DebugTelemetry.emit(
+                hypothesisId = "D",
+                location = "CalendarViewModel:init",
+                msg = "[DEBUG] Resolucion de rol y usuario activo en calendario",
+                data = org.json.JSONObject()
+                    .put("myUid", myUid)
+                    .put("isPartner", isPartner)
+                    .put("linkedUserId", prefs?.linkedUserId ?: "null")
+                    .put("activeUserId", activeUserId)
+            )
+            // #endregion
             _uiState.update { it.copy(isReadOnly = isPartner) }
             loadCurrentMonth()
             loadPrediction()
