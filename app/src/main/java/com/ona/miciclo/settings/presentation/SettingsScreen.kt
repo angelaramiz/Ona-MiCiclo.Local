@@ -29,6 +29,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -301,6 +302,55 @@ fun SettingsScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+
+            // Recordatorios de ciclo (A2): solo para hostess/solo.
+            if ((userPrefs?.userRole ?: "hostess") != "partner") {
+                val reminderPrefs = remember {
+                    com.ona.miciclo.core.notification.ReminderPrefs(context)
+                }
+                var remPeriod by remember { mutableStateOf(reminderPrefs.periodEnabled) }
+                var remFertile by remember { mutableStateOf(reminderPrefs.fertileEnabled) }
+                var remLog by remember { mutableStateOf(reminderPrefs.logEnabled) }
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text("Recordatorios 🔔", style = MaterialTheme.typography.titleSmall)
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "Avisos diarios en este dispositivo (periodo, ventana fértil y registro).",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        @Composable
+                        fun ReminderRow(label: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(label, style = MaterialTheme.typography.bodyMedium)
+                                Switch(checked = checked, onCheckedChange = onChange)
+                            }
+                        }
+                        ReminderRow("Periodo próximo", remPeriod) {
+                            remPeriod = it; reminderPrefs.periodEnabled = it
+                        }
+                        ReminderRow("Ventana fértil", remFertile) {
+                            remFertile = it; reminderPrefs.fertileEnabled = it
+                        }
+                        ReminderRow("Registrar mi día", remLog) {
+                            remLog = it; reminderPrefs.logEnabled = it
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Datos
             Text("Datos", style = MaterialTheme.typography.titleSmall)

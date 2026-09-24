@@ -6,8 +6,12 @@ import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
 import com.ona.miciclo.ai.data.GgufModelDownloader
 import com.ona.miciclo.ai.data.ModelDownloadWorker
+import com.ona.miciclo.calendar.domain.repository.CycleRepository
+import com.ona.miciclo.calendar.domain.usecase.CalculateCyclePredictionUseCase
+import com.ona.miciclo.core.notification.ReminderWorker
 import com.ona.miciclo.core.sync.SupabaseSyncManager
 import com.ona.miciclo.core.sync.SyncWorker
+import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -22,7 +26,10 @@ import javax.inject.Singleton
 @Singleton
 class OnaWorkerFactory @Inject constructor(
     private val syncManagerProvider: Provider<SupabaseSyncManager>,
-    private val ggufModelDownloaderProvider: Provider<GgufModelDownloader>
+    private val ggufModelDownloaderProvider: Provider<GgufModelDownloader>,
+    private val predictionUseCaseProvider: Provider<CalculateCyclePredictionUseCase>,
+    private val cycleRepositoryProvider: Provider<CycleRepository>,
+    private val userPreferencesDaoProvider: Provider<UserPreferencesDao>
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -35,6 +42,14 @@ class OnaWorkerFactory @Inject constructor(
                 SyncWorker(appContext, workerParameters, syncManagerProvider.get())
             ModelDownloadWorker::class.java.name ->
                 ModelDownloadWorker(appContext, workerParameters, ggufModelDownloaderProvider.get())
+            ReminderWorker::class.java.name ->
+                ReminderWorker(
+                    appContext,
+                    workerParameters,
+                    predictionUseCaseProvider.get(),
+                    cycleRepositoryProvider.get(),
+                    userPreferencesDaoProvider.get()
+                )
             else -> null
         }
     }

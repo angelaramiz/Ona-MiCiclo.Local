@@ -113,6 +113,8 @@ class MainActivity : ComponentActivity() {
                     // Sync periódico en segundo plano (WorkManager): mantiene la
                     // comunicación hostess<->partner aunque la app esté cerrada.
                     SyncScheduler.schedulePeriodic(this@MainActivity, user.uid)
+                    // Recordatorios diarios de ciclo (A2; el worker solo actúa si es hostess).
+                    com.ona.miciclo.core.notification.ReminderScheduler.scheduleDaily(this@MainActivity, user.uid)
                 } else {
                     syncManager.stopAllSync()
                     SyncScheduler.cancelAll(this@MainActivity)
