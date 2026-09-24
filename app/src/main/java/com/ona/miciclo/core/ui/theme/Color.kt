@@ -64,12 +64,16 @@ val OnErrorDark = Color(0xFF690005)
 // Estos colores representan cada fase y se usan en el calendario
 val PhaseMenstruation = Color(0xFFE57373)      // Rojo suave — sangrado
 val PhaseMenstruationLight = Color(0xFFFFCDD2)  // Fondo de día de menstruación
+val PhaseMenstruationDark = Color(0xFF8C3A3A)   // Fondo en tema oscuro (texto claro legible)
 val PhaseFollicular = Color(0xFF81C784)          // Verde claro — fase folicular
 val PhaseFollicularLight = Color(0xFFC8E6C9)
+val PhaseFollicularDark = Color(0xFF3E6B40)
 val PhaseFertile = Color(0xFFFFD54F)            // Dorado — ventana fértil
 val PhaseFertileLight = Color(0xFFFFF9C4)
+val PhaseFertileDark = Color(0xFF8A6D1F)
 val PhaseLuteal = Color(0xFF9FA8DA)             // Azul lavanda — fase lútea
 val PhaseLutealLight = Color(0xFFC5CAE9)
+val PhaseLutealDark = Color(0xFF4A5688)
 
 // ── Indicadores de flujo ──
 val FlowNone = Color(0xFFE0E0E0)

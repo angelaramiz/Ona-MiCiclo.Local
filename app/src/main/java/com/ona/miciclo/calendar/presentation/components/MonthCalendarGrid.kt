@@ -127,7 +127,8 @@ fun DayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val phaseColor = getPhaseColor(date, prediction)
+    val isDarkTheme = androidx.compose.foundation.isSystemInDarkTheme()
+    val phaseColor = getPhaseColor(date, prediction, isDarkTheme)
     val backgroundColor by animateColorAsState(
         targetValue = when {
             isSelected -> MaterialTheme.colorScheme.primary
@@ -181,8 +182,10 @@ fun DayCell(
 
 /**
  * Determina el color de fondo de un día basándose en la predicción del ciclo.
+ * Usa variantes oscuras cuando el tema del sistema es oscuro para que el texto
+ * (onSurface, claro en dark) siga legible sobre las esferas.
  */
-private fun getPhaseColor(date: LocalDate, prediction: CyclePrediction?): Color? {
+private fun getPhaseColor(date: LocalDate, prediction: CyclePrediction?, isDark: Boolean): Color? {
     if (prediction == null) return null
 
     val lastPeriodStart = prediction.proximaMenstruacion.minusDays(prediction.duracionPromedio.toLong())
@@ -190,10 +193,14 @@ private fun getPhaseColor(date: LocalDate, prediction: CyclePrediction?): Color?
 
     return when {
         dayOfCycle < 1 || dayOfCycle > prediction.duracionPromedio -> null
-        date in prediction.inicioVentanaFertil..prediction.finVentanaFertil -> PhaseFertileLight
-        dayOfCycle <= 5 -> PhaseMenstruationLight // Sangrado estimado ~5 días
-        dayOfCycle <= prediction.duracionPromedio / 2 -> PhaseFollicularLight
-        else -> PhaseLutealLight
+        date in prediction.inicioVentanaFertil..prediction.finVentanaFertil ->
+            if (isDark) PhaseFertileDark else PhaseFertileLight
+        dayOfCycle <= 5 ->
+            if (isDark) PhaseMenstruationDark else PhaseMenstruationLight // Sangrado estimado ~5 días
+        dayOfCycle <= prediction.duracionPromedio / 2 ->
+            if (isDark) PhaseFollicularDark else PhaseFollicularLight
+        else ->
+            if (isDark) PhaseLutealDark else PhaseLutealLight
     }
 }
 

@@ -9,7 +9,8 @@ $OutputEncoding = [System.Text.Encoding]::UTF8
 
 # 1. Extraer y actualizar version en app/build.gradle.kts (se ejecuta antes de compilar)
 $gradleFile = Join-Path $PSScriptRoot "app/build.gradle.kts"
-$gradleContent = Get-Content $gradleFile -Raw
+# UTF-8 explicito: Get-Content/Set-Content usan ANSI en PS 5.1 y corrompen acentos.
+$gradleContent = [IO.File]::ReadAllText($gradleFile, [Text.Encoding]::UTF8)
 
 $versionCodeMatch = [regex]::Match($gradleContent, 'versionCode\s*=\s*(\d+)')
 $versionNameMatch = [regex]::Match($gradleContent, 'versionName\s*=\s*"([^"]+)"')
@@ -35,10 +36,12 @@ if ($oldVersionName -match '^(\d+)\.(\d+)\.(\d+)(.*)$') {
     $versionName = $oldVersionName + ".1"
 }
 
-# Reemplazar en build.gradle.kts
-$gradleContent = $gradleContent -replace "versionCode\s*=\s*$oldVersionCode", "versionCode = $versionCode"
-$gradleContent = $gradleContent -replace 'versionName\s*=\s*\"' + [regex]::Escape($oldVersionName) + '\"', ('versionName = "' + $versionName + '"')
-Set-Content -Path $gradleFile -Value $gradleContent
+# Reemplazar en build.gradle.kts.
+# NOTA: no usar el operador `-replace PATRON, (REEMPLAZO)` — en PS 5.1 esa forma
+# con tupla no aplica el reemplazo (confirmado empíricamente). Usar [regex]::Replace.
+$gradleContent = [regex]::Replace($gradleContent, "versionCode\s*=\s*$oldVersionCode", "versionCode = $versionCode")
+$gradleContent = [regex]::Replace($gradleContent, 'versionName\s*=\s*"' + [regex]::Escape($oldVersionName) + '"', 'versionName = "' + $versionName + '"')
+[IO.File]::WriteAllText($gradleFile, $gradleContent, [Text.Encoding]::UTF8)
 
 Write-Host "Version actualizada en Gradle: $versionName (Codigo: $versionCode)" -ForegroundColor Cyan
 
@@ -72,7 +75,10 @@ $updateMetadata = @{
 }
 
 $jsonFile = Join-Path $releaseDir "update.json"
-$updateMetadata | ConvertTo-Json | Out-File -FilePath $jsonFile -Encoding utf8
+# UTF-8 SIN BOM: el Gson de UpdateManager no tolera BOM inicial y el check
+# de actualizaciones fallaría. Out-File -Encoding utf8 escribe CON BOM.
+$jsonString = $updateMetadata | ConvertTo-Json
+[IO.File]::WriteAllText($jsonFile, $jsonString)
 Write-Host "Archivo de metadatos de actualizacion creado: $jsonFile" -ForegroundColor Green
 
 # 7. Git commit y push

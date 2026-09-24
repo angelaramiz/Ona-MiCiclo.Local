@@ -2,23 +2,29 @@ package com.ona.miciclo.settings.presentation
 
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -29,8 +35,11 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.ona.miciclo.core.ui.components.LoadingOverlay
 import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaOutlinedButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
@@ -94,18 +103,19 @@ fun SettingsScreen(
         }
     }
 
-    Scaffold(
-        topBar = { OnaTopBar(title = "Configuración") },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { padding ->
-        Column(
-            modifier = modifier
-                .fillMaxSize()
-                .padding(padding)
-                .padding(horizontal = 16.dp)
-                .verticalScroll(rememberScrollState())
-        ) {
-            Spacer(modifier = Modifier.height(16.dp))
+    Box(modifier = modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = { OnaTopBar(title = "Configuración") },
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { padding ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState())
+            ) {
+                Spacer(modifier = Modifier.height(16.dp))
 
             // Cuenta
             Card(
@@ -313,19 +323,11 @@ fun SettingsScreen(
                             onClick = { viewModel.repairAiModel() }
                         )
                     } else if (uiState.isDownloadingAi) {
+                        // El progreso y el botón "Cancelar" los muestra LoadingOverlay.
                         Text(
-                            text = "Descargando modelo Qwen3-4B... ${(uiState.aiDownloadProgress * 100).toInt()}%",
-                            style = MaterialTheme.typography.bodySmall
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        androidx.compose.material3.LinearProgressIndicator(
-                            progress = { uiState.aiDownloadProgress },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
-                        OnaOutlinedButton(
-                            text = "Cancelar Descarga",
-                            onClick = { viewModel.cancelAiDownload() }
+                            text = "Descargando modelo Qwen3-4B...",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.primary
                         )
                     } else {
                         OnaButton(
@@ -387,49 +389,74 @@ fun SettingsScreen(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+            }
         }
-    }
 
-    // Diálogo de actualización disponible o progreso de descarga
-    uiState.updateInfo?.let { updateInfo ->
-        AlertDialog(
-            onDismissRequest = {
-                if (!uiState.isDownloadingUpdate) {
-                    viewModel.dismissUpdateDialog()
-                }
-            },
-            title = { Text("Actualización disponible") },
-            text = {
-                Column {
-                    Text("Se ha encontrado una nueva versión: v${updateInfo.versionName}")
-                    Spacer(modifier = Modifier.height(12.dp))
+        // ── Banner superior de actualización (auto-descarga, sin cancelar) ──
+        uiState.updateInfo?.let { updateInfo ->
+            Surface(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .statusBarsPadding()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
+                    .fillMaxWidth(),
+                shape = MaterialTheme.shapes.medium,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                tonalElevation = 4.dp,
+                shadowElevation = 4.dp
+            ) {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text("⬇️", style = MaterialTheme.typography.titleMedium)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (uiState.isDownloadingUpdate) {
+                                "Descargando actualización v${updateInfo.versionName}... ${(uiState.downloadProgress * 100).toInt()}%"
+                            } else {
+                                "Nueva versión v${updateInfo.versionName} disponible — descargando..."
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
                     if (uiState.isDownloadingUpdate) {
-                        Text("Descargando actualización... ${(uiState.downloadProgress * 100).toInt()}%")
                         Spacer(modifier = Modifier.height(8.dp))
-                        androidx.compose.material3.LinearProgressIndicator(
+                        LinearProgressIndicator(
                             progress = { uiState.downloadProgress },
                             modifier = Modifier.fillMaxWidth()
                         )
-                    } else {
-                        Text("¿Deseas descargar la actualización e instalarla automáticamente?")
-                    }
-                }
-            },
-            confirmButton = {
-                if (!uiState.isDownloadingUpdate) {
-                    TextButton(onClick = { viewModel.downloadAndInstallUpdate() }) {
-                        Text("Descargar e Instalar")
-                    }
-                }
-            },
-            dismissButton = {
-                if (!uiState.isDownloadingUpdate) {
-                    TextButton(onClick = { viewModel.dismissUpdateDialog() }) {
-                        Text("Cancelar")
                     }
                 }
             }
+        }
+
+        // ── Ventana de transición para procesos en curso (descargas, sync) ──
+        LoadingOverlay(
+            visible = uiState.isDownloadingAi ||
+                uiState.isGeneratingCode ||
+                uiState.isLinking ||
+                uiState.isCheckingForUpdates ||
+                uiState.isExporting,
+            message = when {
+                uiState.isDownloadingAi ->
+                    "Descargando modelo de IA... ${(uiState.aiDownloadProgress * 100).toInt()}%"
+                uiState.isLinking -> "Vinculando con tu pareja..."
+                uiState.isGeneratingCode -> "Generando código de invitación..."
+                uiState.isCheckingForUpdates -> "Buscando actualizaciones..."
+                uiState.isExporting -> "Exportando datos encriptados..."
+                else -> null
+            },
+            progress = if (uiState.isDownloadingAi) uiState.aiDownloadProgress else null,
+            onCancel = if (uiState.isDownloadingAi) { { viewModel.cancelAiDownload() } } else null
         )
+    }
+
+    // Auto-descarga de actualización: en cuanto se detecta, empieza sin confirmación.
+    LaunchedEffect(uiState.updateInfo?.versionCode) {
+        if (uiState.updateInfo != null && !uiState.isDownloadingUpdate) {
+            viewModel.downloadAndInstallUpdate()
+        }
     }
 
     // Diálogo de confirmación de borrado

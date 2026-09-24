@@ -4,6 +4,8 @@ import android.content.Context
 import androidx.work.ListenableWorker
 import androidx.work.WorkerFactory
 import androidx.work.WorkerParameters
+import com.ona.miciclo.ai.data.GgufModelDownloader
+import com.ona.miciclo.ai.data.ModelDownloadWorker
 import com.ona.miciclo.core.sync.SupabaseSyncManager
 import com.ona.miciclo.core.sync.SyncWorker
 import javax.inject.Inject
@@ -19,7 +21,8 @@ import javax.inject.Singleton
  */
 @Singleton
 class OnaWorkerFactory @Inject constructor(
-    private val syncManagerProvider: Provider<SupabaseSyncManager>
+    private val syncManagerProvider: Provider<SupabaseSyncManager>,
+    private val ggufModelDownloaderProvider: Provider<GgufModelDownloader>
 ) : WorkerFactory() {
 
     override fun createWorker(
@@ -30,6 +33,8 @@ class OnaWorkerFactory @Inject constructor(
         return when (workerClassName) {
             SyncWorker::class.java.name ->
                 SyncWorker(appContext, workerParameters, syncManagerProvider.get())
+            ModelDownloadWorker::class.java.name ->
+                ModelDownloadWorker(appContext, workerParameters, ggufModelDownloaderProvider.get())
             else -> null
         }
     }

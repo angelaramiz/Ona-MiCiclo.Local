@@ -76,6 +76,12 @@ class GgufModelDownloader @Inject constructor(
             connection.readTimeout = 600000 // 10 minutos para descarga pesada
             // HuggingFace redirige a CDN; seguir redirects está activado por defecto.
             connection.instanceFollowRedirects = true
+            // FIX "unexpected end of stream": sin Connection: close, HttpURLConnection
+            // reutiliza la conexión keep-alive tras el redirect al CDN de HF y el
+            // stream se corta a mitad de archivo. Forzar close evita el reuso corrupto.
+            connection.setRequestProperty("Connection", "close")
+            connection.setRequestProperty("User-Agent", "Ona-MiCiclo/1.0")
+            connection.setRequestProperty("Accept", "*/*")
             connection.connect()
 
             if (connection.responseCode != HttpURLConnection.HTTP_OK) {

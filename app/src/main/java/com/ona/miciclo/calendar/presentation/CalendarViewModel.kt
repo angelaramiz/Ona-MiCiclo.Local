@@ -84,6 +84,46 @@ class CalendarViewModel @Inject constructor(
                 }
             }
         }
+        // Auto-refresh: sincroniza y recarga el calendario cada minuto (silencioso).
+        viewModelScope.launch {
+            while (true) {
+                kotlinx.coroutines.delay(60_000)
+                refresh(showFeedback = false)
+            }
+        }
+    }
+
+    /**
+     * Refresco manual (pull-to-refresh) o automático del calendario.
+     * - Partner: fuerza la descarga de los datos de la hostess.
+     * - Hostess/solo: fuerza la subida de sus datos locales.
+     * Después recarga el mes, la predicción y las sugerencias pendientes.
+     */
+    fun refresh(showFeedback: Boolean = true) {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isRefreshing = true) }
+            try {
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                val prefs = userPreferencesDao.getByUserId(myUid)
+                if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
+                    syncManager.refreshPartnerData(prefs.linkedUserId!!)
+                } else if (myUid.isNotEmpty()) {
+                    syncManager.syncHostessDataToCloud(myUid)
+                }
+                loadCurrentMonth()
+                loadPrediction()
+                loadPendingSuggestions()
+                _uiState.update {
+                    if (showFeedback) it.copy(isRefreshing = false, message = "Datos actualizados ✓")
+                    else it.copy(isRefreshing = false)
+                }
+            } catch (e: Exception) {
+                _uiState.update {
+                    if (showFeedback) it.copy(isRefreshing = false, error = "Error al actualizar: ${e.message}")
+                    else it.copy(isRefreshing = false)
+                }
+            }
+        }
     }
 
     fun loadCurrentMonth() {
@@ -332,6 +372,7 @@ data class CalendarUiState(
     val saveSuccess: Boolean = false,
     val error: String? = null,
     val isReadOnly: Boolean = false,
+    val isRefreshing: Boolean = false,
     val isSelectedDatePeriodStart: Boolean = false,
     val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
     val message: String? = null,

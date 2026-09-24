@@ -347,8 +347,20 @@ class SupabaseSyncManager(
                 null
             }
         }
+        // Hay datos en la nube pero NINGUNO se puede descifrar: la passphrase del
+        // código de invitación es obsoleta (la anfitriona regeneró su clave). En vez
+        // de fallar en silencio, reportarlo para que sepa que debe regenerar el código.
+        if (cyclesRows.isNotEmpty() && cycleEntities.isEmpty()) {
+            throw Exception(
+                "No se pudieron descifrar los datos de la anfitriona. " +
+                    "Pídele que genere un nuevo código de invitación y vincúlate de nuevo."
+            )
+        }
         if (cycleEntities.isNotEmpty()) {
-            cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
+            // Remapear ids a 0 (autoGenerate) para que NO colisionen con los
+            // registros propios del partner (que también empiezan en id=1). Sin
+            // esto, insertAll(REPLACE) sobrescribiría los datos del partner.
+            cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities.map { it.copy(id = 0) })
         }
 
         val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
@@ -363,17 +375,26 @@ class SupabaseSyncManager(
             }
         }
         if (logEntities.isNotEmpty()) {
-            dailyLogDao.clearAndInsertLogs(hostessId, logEntities)
+            dailyLogDao.clearAndInsertLogs(hostessId, logEntities.map { it.copy(id = 0) })
         }
     }
 
-    /**
-     * Un ciclo de sync completo para un usuario, usado por `SyncWorker` (WorkManager)
-     * para mantener los datos sincronizados aunque la app esté cerrada.
-     * - Partner: descarga los datos de la hostess (vista solo lectura).
-     * - Hostess/solo: sube todos sus datos locales a la nube.
-     */
-    suspend fun runSyncOnce(userId: String) {
+/**
+ * Refresco inmediato del partner: descarga los datos de la hostess ahora.
+ * Lanza excepción si hay datos en la nube pero ninguno se puede descifrar
+ * (passphrase obsoleta) para que la UI lo muestre.
+ */
+suspend fun refreshPartnerData(hostessId: String) {
+    downloadHostessDataOnce(hostessId)
+}
+
+/**
+ * Un ciclo de sync completo para un usuario, usado por `SyncWorker` (WorkManager)
+ * para mantener los datos sincronizados aunque la app esté cerrada.
+ * - Partner: descarga los datos de la hostess (vista solo lectura).
+ * - Hostess/solo: sube todos sus datos locales a la nube.
+ */
+suspend fun runSyncOnce(userId: String) {
         val prefs = userPreferencesDao.getByUserId(userId) ?: return
         val linkedId = prefs.linkedUserId
         if (prefs.userRole == "partner" && !linkedId.isNullOrEmpty()) {

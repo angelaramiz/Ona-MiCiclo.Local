@@ -1,12 +1,18 @@
 package com.ona.miciclo.settings.presentation
 
+import android.content.Context
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ona.miciclo.ai.data.ModelDownloadScheduler
+import com.ona.miciclo.ai.data.ModelDownloadWorker
 import com.ona.miciclo.auth.domain.repository.AuthRepository
 import com.ona.miciclo.auth.domain.usecase.SignOutUseCase
 import com.ona.miciclo.settings.domain.repository.ExportImportRepository
 import com.ona.miciclo.settings.domain.usecase.ExportDataUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -28,13 +34,12 @@ class SettingsViewModel @Inject constructor(
     private val userPreferencesDao: UserPreferencesDao,
     private val syncManager: SupabaseSyncManager,
     private val ggufModelDownloader: com.ona.miciclo.ai.data.GgufModelDownloader,
-    private val inferenceEngine: com.ona.miciclo.ai.domain.IInferenceEngine
+    private val inferenceEngine: com.ona.miciclo.ai.domain.IInferenceEngine,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
-
-    private var aiDownloadJob: kotlinx.coroutines.Job? = null
 
     private val userId: String
         get() = authRepository.currentUser.value?.uid ?: ""
@@ -53,40 +58,44 @@ class SettingsViewModel @Inject constructor(
         _uiState.update {
             it.copy(isAiModelDownloaded = ggufModelDownloader.isModelDownloaded())
         }
+        // Observa el progreso de la descarga en segundo plano (WorkManager):
+        // así la UI refleja descargas que continúan aunque la app se haya cerrado.
+        viewModelScope.launch {
+            WorkManager.getInstance(context)
+                .getWorkInfosByTagFlow(ModelDownloadScheduler.TAG)
+                .collect { infos ->
+                    val info = infos.lastOrNull() ?: return@collect
+                    _uiState.update { current ->
+                        when (info.state) {
+                            WorkInfo.State.ENQUEUED, WorkInfo.State.RUNNING -> current.copy(
+                                isDownloadingAi = true,
+                                aiDownloadProgress = info.progress.getFloat(ModelDownloadWorker.KEY_PROGRESS, 0f),
+                                aiDownloadError = null
+                            )
+                            WorkInfo.State.SUCCEEDED -> current.copy(
+                                isDownloadingAi = false,
+                                isAiModelDownloaded = true,
+                                aiDownloadProgress = 1f,
+                                message = "Modelo de IA descargado e inicializado correctamente ✓"
+                            )
+                            WorkInfo.State.FAILED -> current.copy(
+                                isDownloadingAi = false,
+                                aiDownloadError = info.outputData.getString(ModelDownloadWorker.KEY_ERROR)
+                                    ?: "Error al descargar el modelo de IA."
+                            )
+                            WorkInfo.State.CANCELLED -> current.copy(isDownloadingAi = false)
+                            else -> current
+                        }
+                    }
+                }
+        }
     }
 
     fun downloadAiModel() {
-        aiDownloadJob?.cancel()
-        aiDownloadJob = viewModelScope.launch {
-            _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
-            ggufModelDownloader.downloadModel().collect { state ->
-                when (state) {
-                    is com.ona.miciclo.ai.data.DownloadState.Downloading -> {
-                        _uiState.update { it.copy(aiDownloadProgress = state.progress) }
-                    }
-                    com.ona.miciclo.ai.data.DownloadState.Success -> {
-                        _uiState.update {
-                            it.copy(
-                                isDownloadingAi = false,
-                                isAiModelDownloaded = true,
-                                message = "Modelo de IA descargado e inicializado correctamente ✓"
-                            )
-                        }
-                    }
-                    is com.ona.miciclo.ai.data.DownloadState.Error -> {
-                        _uiState.update {
-                            it.copy(
-                                isDownloadingAi = false,
-                                aiDownloadError = state.error.message ?: "Error desconocido"
-                            )
-                        }
-                    }
-                    com.ona.miciclo.ai.data.DownloadState.Idle -> {
-                        _uiState.update { it.copy(isDownloadingAi = false) }
-                    }
-                }
-            }
-        }
+        // Descarga en segundo plano vía WorkManager: continúa aunque la app
+        // se cierre. La UI observa el progreso en init (getWorkInfosByTagFlow).
+        _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
+        ModelDownloadScheduler.start(context)
     }
 
     fun deleteAiModel() {
@@ -106,7 +115,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun cancelAiDownload() {
-        aiDownloadJob?.cancel()
+        ModelDownloadScheduler.cancel(context)
         _uiState.update { it.copy(isDownloadingAi = false, aiDownloadProgress = 0f) }
     }
 
@@ -141,7 +150,13 @@ class SettingsViewModel @Inject constructor(
                 _uiState.update { it.copy(downloadProgress = progress) }
             }) {
                 com.ona.miciclo.core.update.UpdateManager.DownloadResult.Success -> {
-                    _uiState.update { it.copy(isDownloadingUpdate = false) }
+                    _uiState.update {
+                        it.copy(
+                            isDownloadingUpdate = false,
+                            updateInfo = null,
+                            message = "Actualización descargada. Se instalará en unos segundos."
+                        )
+                    }
                 }
                 is com.ona.miciclo.core.update.UpdateManager.DownloadResult.Error -> {
                     _uiState.update {
