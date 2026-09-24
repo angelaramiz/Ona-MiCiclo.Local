@@ -21,7 +21,8 @@ class DashboardViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val userPreferencesDao: UserPreferencesDao,
     private val cycleRepository: CycleRepository,
-    private val calculateCyclePredictionUseCase: CalculateCyclePredictionUseCase
+    private val calculateCyclePredictionUseCase: CalculateCyclePredictionUseCase,
+    @dagger.hilt.android.qualifiers.ApplicationContext private val appContext: android.content.Context
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -65,6 +66,25 @@ class DashboardViewModel @Inject constructor(
                     .filter { it.fecha >= LocalDate.now().minusDays(30) }
                 com.ona.miciclo.ai.domain.CycleInsightProvider.insights(prediction, logs)
             }.getOrDefault(emptyList())
+            // Modo íntimo en pareja (B3): solo con vínculo y objetivo elegido.
+            val coupleGuidance = runCatching {
+                val linked = !linkedUserId.isNullOrEmpty()
+                val goal = if (isPartner) {
+                    com.ona.miciclo.core.notification.ReminderPrefs(appContext)
+                        .coupleGoal.ifEmpty { null }
+                } else {
+                    com.ona.miciclo.calendar.domain.model.CoupleGuidance.fromHostessObjective(
+                        prefs?.objetivoUsuario
+                    )
+                }
+                if (linked) {
+                    com.ona.miciclo.calendar.domain.model.CoupleGuidance.forCouple(
+                        prediction, LocalDate.now(), goal, isPartner
+                    )
+                } else {
+                    null
+                }
+            }.getOrNull()
             _uiState.update {
                 it.copy(
                     isLoading = false,
@@ -72,6 +92,7 @@ class DashboardViewModel @Inject constructor(
                     latestPeriodStart = latestPeriodStart,
                     prediction = prediction,
                     insights = insights,
+                    coupleGuidance = coupleGuidance,
                     error = predictionResult.exceptionOrNull()?.localizedMessage
                 )
             }
@@ -88,5 +109,6 @@ data class DashboardUiState(
     val latestPeriodStart: LocalDate? = null,
     val prediction: CyclePrediction? = null,
     val insights: List<String> = emptyList(),
+    val coupleGuidance: com.ona.miciclo.calendar.domain.model.CoupleGuidance.Result? = null,
     val error: String? = null
 )

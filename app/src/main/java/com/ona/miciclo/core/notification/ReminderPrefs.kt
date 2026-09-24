@@ -38,6 +38,14 @@ class ReminderPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_COUPLE_ALLOWED, false)
         set(v) = prefs.edit().putBoolean(KEY_COUPLE_ALLOWED, v).apply()
 
+    /**
+     * Objetivo íntimo de la pareja (B3, local en cada teléfono):
+     * "" (sin elegir), "CONCEIVE" (buscamos embarazo) o "AVOID" (solo disfrutar).
+     */
+    var coupleGoal: String
+        get() = prefs.getString(KEY_COUPLE_GOAL, "") ?: ""
+        set(v) = prefs.edit().putString(KEY_COUPLE_GOAL, v).apply()
+
     fun notifiedKeys(): Set<String> =
         prefs.getStringSet(KEY_NOTIFIED, emptySet()) ?: emptySet()
 
@@ -55,6 +63,7 @@ class ReminderPrefs(context: Context) {
         const val KEY_LOG = "rem_log"
         const val KEY_PARTNER_ALERTS = "rem_partner_alerts"
         const val KEY_COUPLE_ALLOWED = "rem_couple_allowed"
+        const val KEY_COUPLE_GOAL = "couple_goal"
         const val KEY_NOTIFIED = "rem_notified"
     }
 }

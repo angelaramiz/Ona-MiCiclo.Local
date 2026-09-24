@@ -236,6 +236,20 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(reportUri = null) }
     }
 
+    /** Cambia el objetivo de la hostess (B3: conocimiento/fertilidad/anticoncepcion). */
+    fun updateObjective(objective: String) {
+        viewModelScope.launch {
+            try {
+                val current = userPreferencesDao.getByUserId(userId)
+                if (current != null) {
+                    userPreferencesDao.insertOrUpdate(current.copy(objetivoUsuario = objective))
+                }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al guardar objetivo: ${e.localizedMessage}") }
+            }
+        }
+    }
+
     fun generateInvitationCode() {
         viewModelScope.launch {
             _uiState.update { it.copy(isGeneratingCode = true, error = null) }

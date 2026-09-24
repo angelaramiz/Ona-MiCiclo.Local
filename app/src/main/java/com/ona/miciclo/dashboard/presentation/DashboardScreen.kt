@@ -127,6 +127,40 @@ fun DashboardScreen(
                 }
             }
 
+            // Modo íntimo en pareja (B3).
+            uiState.coupleGuidance?.let { guidance ->
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer
+                    ),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "💞 ${guidance.title}",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = guidance.text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onTertiaryContainer
+                        )
+                        if (guidance.showDisclaimer) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = com.ona.miciclo.calendar.domain.model.CoupleGuidance.DISCLAIMER,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer
+                            )
+                        }
+                    }
+                }
+            }
+
             uiState.error?.let { err ->
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(

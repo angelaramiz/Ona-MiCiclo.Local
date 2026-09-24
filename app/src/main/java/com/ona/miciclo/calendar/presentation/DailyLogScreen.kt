@@ -172,7 +172,7 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
         "calambres", "dolor_cabeza", "fatiga", "sensibilidad_pechos",
         "acne", "hinchazón", "cambios_humor", "dolor_espalda",
         "nauseas", "insomnio", "antojos", "dolor_articulaciones",
-        "ovulacion"
+        "ovulacion", "relaciones"
     )
 
     val symptomDisplayNames = mapOf(
@@ -188,7 +188,8 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
         "insomnio" to "Insomnio",
         "antojos" to "Antojos",
         "dolor_articulaciones" to "Dolor de articulaciones",
-        "ovulacion" to "Ovulación"
+        "ovulacion" to "Ovulación",
+        "relaciones" to "Relaciones íntimas"
     )
 
     Scaffold(

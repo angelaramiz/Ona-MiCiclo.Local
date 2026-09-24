@@ -28,6 +28,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -243,6 +244,9 @@ fun SettingsScreen(
                         var partnerAlerts by remember {
                             mutableStateOf(partnerReminderPrefs.partnerAlertsEnabled)
                         }
+                        var coupleGoal by remember {
+                            mutableStateOf(partnerReminderPrefs.coupleGoal)
+                        }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
@@ -265,6 +269,34 @@ fun SettingsScreen(
                                     partnerAlerts = it
                                     partnerReminderPrefs.partnerAlertsEnabled = it
                                 }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Objetivo íntimo (B3, local en este teléfono).
+                        Text(
+                            "Nuestro objetivo como pareja:",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilterChip(
+                                selected = coupleGoal == "CONCEIVE",
+                                onClick = {
+                                    coupleGoal = "CONCEIVE"
+                                    partnerReminderPrefs.coupleGoal = "CONCEIVE"
+                                },
+                                label = { Text("Buscamos embarazo 🤰") }
+                            )
+                            FilterChip(
+                                selected = coupleGoal == "AVOID",
+                                onClick = {
+                                    coupleGoal = "AVOID"
+                                    partnerReminderPrefs.coupleGoal = "AVOID"
+                                },
+                                label = { Text("Solo disfrutar 💞") }
                             )
                         }
                         Spacer(modifier = Modifier.height(12.dp))
@@ -339,6 +371,29 @@ fun SettingsScreen(
                                         coupleAllowed = it
                                         couplePrefs.coupleAlertsAllowed = it
                                     }
+                                )
+                            }
+                            // Objetivo del ciclo (B3): alimenta el modo íntimo en pareja.
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                "Tu objetivo:",
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
+                            ) {
+                                val currentGoal = userPrefs?.objetivoUsuario ?: "conocimiento"
+                                FilterChip(
+                                    selected = currentGoal == "fertilidad",
+                                    onClick = { viewModel.updateObjective("fertilidad") },
+                                    label = { Text("Embarazo 🤰") }
+                                )
+                                FilterChip(
+                                    selected = currentGoal == "anticoncepcion",
+                                    onClick = { viewModel.updateObjective("anticoncepcion") },
+                                    label = { Text("Evitar 🤍") }
                                 )
                             }
                             Spacer(modifier = Modifier.height(12.dp))
