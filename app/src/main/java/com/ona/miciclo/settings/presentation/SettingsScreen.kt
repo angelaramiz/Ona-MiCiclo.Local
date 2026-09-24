@@ -1,7 +1,11 @@
 package com.ona.miciclo.settings.presentation
 
+import android.Manifest
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -39,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import com.ona.miciclo.core.ui.components.LoadingOverlay
 import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaOutlinedButton
@@ -72,9 +77,71 @@ fun SettingsScreen(
 
     val snackbarHostState = remember { SnackbarHostState() }
     var showDeleteDialog by rememberSaveable { mutableStateOf(false) }
+    var showDeleteAiDialog by rememberSaveable { mutableStateOf(false) }
     var showExportDialog by rememberSaveable { mutableStateOf(false) }
     var showDownloadSpecsDialog by rememberSaveable { mutableStateOf(false) }
     var exportPassword by rememberSaveable { mutableStateOf("") }
+    // Permiso de notificaciones: se pide UNA vez, con contexto, al vincularse como pareja.
+    var showNotifRationale by rememberSaveable { mutableStateOf(false) }
+    val uxFlags = remember {
+        context.getSharedPreferences("ona_ux_flags", Context.MODE_PRIVATE)
+    }
+    fun notifRationaleAsked(): Boolean = uxFlags.getBoolean("notif_rationale_asked", false)
+    fun markNotifRationaleAsked() {
+        uxFlags.edit().putBoolean("notif_rationale_asked", true).apply()
+    }
+    val hasNotifPermission: Boolean = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+    } else {
+        true
+    }
+    val notifLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { markNotifRationaleAsked() }
+
+    // Disparar rationale: hostess genera código O partner se acaba de vincular.
+    // (No naggea: solo una vez por instalación y solo si aún no tiene el permiso.)
+    LaunchedEffect(uiState.invitationCode, userPrefs?.linkedUserId) {
+        val justLinked = uiState.invitationCode != null || !userPrefs?.linkedUserId.isNullOrEmpty()
+        if (justLinked && !hasNotifPermission && !notifRationaleAsked()) {
+            showNotifRationale = true
+        }
+    }
+
+    if (showNotifRationale) {
+        AlertDialog(
+            onDismissRequest = { showNotifRationale = false; markNotifRationaleAsked() },
+            title = { Text("Activar notificaciones") },
+            text = {
+                Text(
+                    "Activa las notificaciones para recibir avisos de sincronización " +
+                            "y sugerencias de tu pareja. Puedes cambiarlo luego en los " +
+                            "Ajustes del sistema."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNotifRationale = false
+                        markNotifRationaleAsked()
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            notifLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        }
+                    }
+                ) {
+                    Text("Activar")
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = { showNotifRationale = false; markNotifRationaleAsked() }
+                ) {
+                    Text("Ahora no")
+                }
+            }
+        )
+    }
 
     LaunchedEffect(uiState.isSignedOut) {
         if (uiState.isSignedOut) {
@@ -310,7 +377,7 @@ fun SettingsScreen(
                         Spacer(modifier = Modifier.height(8.dp))
                         OnaOutlinedButton(
                             text = "🗑️ Eliminar modelo de IA",
-                            onClick = { viewModel.deleteAiModel() }
+                            onClick = { showDeleteAiDialog = true }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         OnaOutlinedButton(
@@ -483,6 +550,35 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
+    }
+
+    // Diálogo de confirmación para eliminar el modelo de IA (2.5 GB)
+    if (showDeleteAiDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAiDialog = false },
+            title = { Text("¿Eliminar modelo de IA?") },
+            text = {
+                Text(
+                    "Se eliminarán los 2.5 GB del modelo Qwen3-4B de este dispositivo. " +
+                            "El asistente de IA dejará de funcionar hasta que lo descargues de nuevo."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.deleteAiModel()
+                        showDeleteAiDialog = false
+                    }
+                ) {
+                    Text("Eliminar modelo", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAiDialog = false }) {
                     Text("Cancelar")
                 }
             }

@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavDestination.Companion.hasRoute
@@ -71,13 +72,6 @@ class MainActivity : ComponentActivity() {
     @Inject
     lateinit var authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository
 
-    // Lanzador para solicitar permiso de notificaciones
-    private val requestNotificationPermissionLauncher = registerForActivityResult(
-        ActivityResultContracts.RequestPermission()
-    ) { _ ->
-        // El usuario puede aceptar o denegar, no necesitamos hacer nada específico aquí
-    }
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -90,11 +84,6 @@ class MainActivity : ComponentActivity() {
             data = org.json.JSONObject().put("sdk", Build.VERSION.SDK_INT)
         )
         // #endregion
-
-        // Solicitar permiso de notificaciones en Android 13+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestNotificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-        }
 
         lifecycleScope.launch {
             authRepository.currentUser.collect { user ->
@@ -213,13 +202,25 @@ fun OnaNavigation(
             // ── Auth ──
             composable<Login> {
                 val viewModel: AuthViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 LoginScreen(
                     viewModel = viewModel,
                     onNavigateToRegister = { navController.navigate(Register) },
                     onNavigateToForgotPassword = { navController.navigate(ForgotPassword) },
                     onLoginSuccess = {
-                        navController.navigate(Onboarding) {
-                            popUpTo(Login) { inclusive = true }
+                        // No repetir onboarding en usuarios ya configurados.
+                        scope.launch {
+                            val uid = authRepository.currentUser.value?.uid ?: ""
+                            val completed = userPreferencesDao.getByUserId(uid)?.onboardingCompletado == true
+                            if (completed) {
+                                navController.navigate(Dashboard) {
+                                    popUpTo(Login) { inclusive = true }
+                                }
+                            } else {
+                                navController.navigate(Onboarding) {
+                                    popUpTo(Login) { inclusive = true }
+                                }
+                            }
                         }
                     }
                 )
@@ -227,12 +228,16 @@ fun OnaNavigation(
 
             composable<Register> {
                 val viewModel: AuthViewModel = hiltViewModel()
+                val scope = rememberCoroutineScope()
                 RegisterScreen(
                     viewModel = viewModel,
                     onNavigateBack = { navController.popBackStack() },
                     onRegisterSuccess = {
-                        navController.navigate(Onboarding) {
-                            popUpTo(Login) { inclusive = true }
+                        // Un registro siempre es usuario nuevo → onboarding.
+                        scope.launch {
+                            navController.navigate(Onboarding) {
+                                popUpTo(Login) { inclusive = true }
+                            }
                         }
                     }
                 )
@@ -297,7 +302,16 @@ fun OnaNavigation(
 
             composable<History> {
                 val viewModel: HistoryViewModel = hiltViewModel()
-                HistoryScreen(viewModel = viewModel)
+                HistoryScreen(
+                    viewModel = viewModel,
+                    onNavigateToCalendar = {
+                        navController.navigate(Calendar) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
             }
 
             composable<Settings> {

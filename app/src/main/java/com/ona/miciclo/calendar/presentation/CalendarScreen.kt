@@ -48,6 +48,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
 import com.ona.miciclo.calendar.presentation.components.MonthCalendarGrid
+import com.ona.miciclo.core.ui.components.OnaButton
+import com.ona.miciclo.core.ui.components.OnaOutlinedButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
 import com.ona.miciclo.ai.presentation.components.AiChatDialog
 import java.time.Instant
@@ -169,6 +171,32 @@ fun CalendarScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Estado de sincronización (persistente): muestra si está
+            // sincronizando, la última sync exitosa o si aún no hay sync.
+            if (uiState.isRefreshing || uiState.lastSyncTimeMillis != null) {
+                val syncLabel = when {
+                    uiState.isRefreshing -> "🔄 Sincronizando…"
+                    uiState.lastSyncTimeMillis != null -> {
+                        val t = Instant.ofEpochMilli(uiState.lastSyncTimeMillis!!)
+                            .atZone(ZoneId.systemDefault()).toLocalTime()
+                        "✓ Sincronizado ${t.hour.toString().padStart(2, '0')}:${t.minute.toString().padStart(2, '0')}"
+                    }
+                    else -> "⏳ Sin sincronizar"
+                }
+                Text(
+                    text = syncLabel,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (uiState.isRefreshing) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             // Calendario
             MonthCalendarGrid(
                 yearMonth = uiState.currentYearMonth,
@@ -186,40 +214,18 @@ fun CalendarScreen(
                 if (!uiState.isReadOnly) {
                     val isPredictedStart = uiState.prediction?.proximaMenstruacion == selectedDate
                     if (isPredictedStart) {
-                        androidx.compose.material3.OutlinedButton(
-                            onClick = { viewModel.startNewPeriod(selectedDate) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Icon(
-                                Icons.Default.WaterDrop,
-                                contentDescription = null,
-                                tint = MaterialTheme.colorScheme.error
-                            )
-                            Text(
-                                text = "  Confirmar periodo",
-                                color = MaterialTheme.colorScheme.error
-                            )
-                        }
+                        OnaButton(
+                            text = "Confirmar periodo",
+                            onClick = { viewModel.startNewPeriod(selectedDate) }
+                        )
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 } else {
                     // Para el partner, siempre mostrar botón de sugerir
-                    androidx.compose.material3.OutlinedButton(
-                        onClick = { viewModel.suggestPeriodStart(selectedDate) },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = MaterialTheme.shapes.large
-                    ) {
-                        Icon(
-                            Icons.Default.Favorite,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary
-                        )
-                        Text(
-                            text = "  Sugerir inicio de periodo",
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
+                    OnaOutlinedButton(
+                        text = "Sugerir inicio de periodo",
+                        onClick = { viewModel.suggestPeriodStart(selectedDate) }
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
@@ -244,17 +250,10 @@ fun CalendarScreen(
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth()
                         )
-                        Button(
-                            onClick = { showInitDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = MaterialTheme.shapes.large
-                        ) {
-                            Icon(
-                                Icons.Default.WaterDrop,
-                                contentDescription = null
-                            )
-                            Text("  Inicializar seguimiento de ciclo")
-                        }
+                        OnaButton(
+                            text = "Inicializar seguimiento de ciclo",
+                            onClick = { showInitDialog = true }
+                        )
                     }
                 } else {
                     // Sin predicción pero con datos → cargando o error temporal

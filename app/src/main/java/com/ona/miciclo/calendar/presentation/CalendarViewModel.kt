@@ -114,8 +114,15 @@ class CalendarViewModel @Inject constructor(
                 loadPrediction()
                 loadPendingSuggestions()
                 _uiState.update {
-                    if (showFeedback) it.copy(isRefreshing = false, message = "Datos actualizados ✓")
-                    else it.copy(isRefreshing = false)
+                    if (showFeedback) it.copy(
+                        isRefreshing = false,
+                        lastSyncTimeMillis = System.currentTimeMillis(),
+                        message = "Datos actualizados ✓"
+                    )
+                    else it.copy(
+                        isRefreshing = false,
+                        lastSyncTimeMillis = System.currentTimeMillis()
+                    )
                 }
             } catch (e: Exception) {
                 _uiState.update {
@@ -373,6 +380,8 @@ data class CalendarUiState(
     val error: String? = null,
     val isReadOnly: Boolean = false,
     val isRefreshing: Boolean = false,
+    /** Última sincronización exitosa (nube). Null = aún no sincronizado. */
+    val lastSyncTimeMillis: Long? = null,
     val isSelectedDatePeriodStart: Boolean = false,
     val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
     val message: String? = null,

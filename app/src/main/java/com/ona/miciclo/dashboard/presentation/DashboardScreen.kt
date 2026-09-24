@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -18,6 +17,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
+import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -87,12 +87,11 @@ fun DashboardScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
-            Button(
+            OnaButton(
+                text = if (uiState.isLoading) "Actualizando..." else "Actualizar",
                 onClick = { viewModel.refresh() },
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text(if (uiState.isLoading) "Actualizando..." else "Actualizar")
-            }
+                isLoading = uiState.isLoading
+            )
         }
     }
 }

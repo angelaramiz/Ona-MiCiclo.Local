@@ -100,8 +100,9 @@ fun DailyLogScreen(
     var selectedMucus by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedPosition by rememberSaveable { mutableStateOf<String?>(null) }
     var selectedLh by rememberSaveable { mutableStateOf<String?>(null) }
-    var notes by rememberSaveable { mutableStateOf("") }
-    var isPeriodStart by rememberSaveable { mutableStateOf(false) }
+var notes by rememberSaveable { mutableStateOf("") }
+var isPeriodStart by rememberSaveable { mutableStateOf(false) }
+var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
 
     LaunchedEffect(uiState.isSelectedDatePeriodStart) {
         isPeriodStart = uiState.isSelectedDatePeriodStart
@@ -562,20 +563,23 @@ fun DailyLogScreen(
             OnaButton(
                 text = "Guardar Registro",
                 onClick = {
-                    viewModel.saveDailyLog(
-                        date = date,
-                        flowLevel = FlowLevel.fromString(selectedFlow),
-                        symptoms = selectedSymptoms.toList(),
-                        basalTemp = if (showTemp) basalTemp.toDoubleOrNull() else null,
-                        mocoCervical = if (showMucus) selectedMucus else null,
-                        posicionCervical = if (showPosition) selectedPosition else null,
-                        resultadoTiraLh = if (showLh) selectedLh else null,
-                        notes = notes.ifBlank { null }
-                    )
-                    if (isPeriodStart && !uiState.isSelectedDatePeriodStart) {
-                        viewModel.startNewPeriod(date)
-                    } else if (!isPeriodStart && uiState.isSelectedDatePeriodStart) {
-                        viewModel.deletePeriodStart(date)
+                    if (!isPeriodStart && uiState.isSelectedDatePeriodStart) {
+                        // Quitar un inicio de periodo es destructivo: confirmar primero.
+                        showDeletePeriodConfirm = true
+                    } else {
+                        viewModel.saveDailyLog(
+                            date = date,
+                            flowLevel = FlowLevel.fromString(selectedFlow),
+                            symptoms = selectedSymptoms.toList(),
+                            basalTemp = if (showTemp) basalTemp.toDoubleOrNull() else null,
+                            mocoCervical = if (showMucus) selectedMucus else null,
+                            posicionCervical = if (showPosition) selectedPosition else null,
+                            resultadoTiraLh = if (showLh) selectedLh else null,
+                            notes = notes.ifBlank { null }
+                        )
+                        if (isPeriodStart && !uiState.isSelectedDatePeriodStart) {
+                            viewModel.startNewPeriod(date)
+                        }
                     }
                 },
                 isLoading = uiState.isSaving
@@ -583,6 +587,45 @@ fun DailyLogScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
         }
+    }
+
+    // Confirmación destructiva: quitar inicio de periodo borra el CycleRecord.
+    if (showDeletePeriodConfirm) {
+        AlertDialog(
+            onDismissRequest = { showDeletePeriodConfirm = false },
+            title = { Text("¿Quitar inicio de periodo?") },
+            text = {
+                Text(
+                    "Se eliminará el registro de inicio de periodo del ${date.dayOfMonth}/${date.monthValue}/${date.year}. " +
+                            "Tus síntomas de ese día se conservarán. Esta acción no se puede deshacer."
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.saveDailyLog(
+                            date = date,
+                            flowLevel = FlowLevel.fromString(selectedFlow),
+                            symptoms = selectedSymptoms.toList(),
+                            basalTemp = if (showTemp) basalTemp.toDoubleOrNull() else null,
+                            mocoCervical = if (showMucus) selectedMucus else null,
+                            posicionCervical = if (showPosition) selectedPosition else null,
+                            resultadoTiraLh = if (showLh) selectedLh else null,
+                            notes = notes.ifBlank { null }
+                        )
+                        viewModel.deletePeriodStart(date)
+                        showDeletePeriodConfirm = false
+                    }
+                ) {
+                    Text("Eliminar", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeletePeriodConfirm = false }) {
+                    Text("Cancelar")
+                }
+            }
+        )
     }
 
     // Modal de Tooltip Educativo

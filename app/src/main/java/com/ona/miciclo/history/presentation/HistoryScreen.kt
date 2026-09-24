@@ -24,6 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.domain.model.CycleRecord
+import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -31,6 +32,7 @@ import java.util.Locale
 @Composable
 fun HistoryScreen(
     viewModel: HistoryViewModel,
+    onNavigateToCalendar: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -120,15 +122,28 @@ fun HistoryScreen(
                     Spacer(modifier = Modifier.height(8.dp))
 
                     if (uiState.records.isEmpty()) {
-                        Text(
-                            text = "Aún no tienes registros de ciclo.\nMarca tu primer periodo en el calendario para comenzar.",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            textAlign = TextAlign.Center,
+                        Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(48.dp)
-                        )
+                                .padding(vertical = 48.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            Text(
+                                text = "🗓️",
+                                style = MaterialTheme.typography.displaySmall
+                            )
+                            Text(
+                                text = "Aún no tienes registros de ciclo.\nMarca tu primer periodo en el calendario para comenzar.",
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                textAlign = TextAlign.Center
+                            )
+                            OnaButton(
+                                text = "Ir al calendario",
+                                onClick = onNavigateToCalendar
+                            )
+                        }
                     } else {
                         LazyColumn(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
