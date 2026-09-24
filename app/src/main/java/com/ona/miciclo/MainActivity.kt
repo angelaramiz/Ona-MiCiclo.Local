@@ -38,6 +38,7 @@ import com.ona.miciclo.calendar.presentation.CalendarScreen
 import com.ona.miciclo.calendar.presentation.CalendarViewModel
 import com.ona.miciclo.calendar.presentation.DailyLogScreen
 import com.ona.miciclo.core.navigation.*
+import com.ona.miciclo.core.sync.SyncScheduler
 import com.ona.miciclo.core.ui.theme.OnaMiCicloTheme
 import com.ona.miciclo.history.presentation.HistoryScreen
 import com.ona.miciclo.history.presentation.HistoryViewModel
@@ -117,8 +118,12 @@ class MainActivity : ComponentActivity() {
                         syncManager.downloadUserDataFromCloud(user.uid)
                         syncManager.startHostessAutoSync(user.uid)
                     }
+                    // Sync periódico en segundo plano (WorkManager): mantiene la
+                    // comunicación hostess<->partner aunque la app esté cerrada.
+                    SyncScheduler.schedulePeriodic(this@MainActivity, user.uid)
                 } else {
                     syncManager.stopAllSync()
+                    SyncScheduler.cancelAll(this@MainActivity)
                 }
             }
         }

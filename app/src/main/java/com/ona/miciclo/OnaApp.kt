@@ -1,8 +1,11 @@
 package com.ona.miciclo
 
 import android.app.Application
+import androidx.work.Configuration
 import com.ona.miciclo.core.debug.DebugTelemetry
+import com.ona.miciclo.core.di.OnaWorkerFactory
 import dagger.hilt.android.HiltAndroidApp
+import javax.inject.Inject
 
 /**
  * Ona-MiCiclo Application class.
@@ -11,7 +14,16 @@ import dagger.hilt.android.HiltAndroidApp
  * No analytics SDKs, no tracking libraries — privacy by design.
  */
 @HiltAndroidApp
-class OnaApp : Application() {
+class OnaApp : Application(), Configuration.Provider {
+
+    @Inject
+    lateinit var workerFactory: OnaWorkerFactory
+
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
+            .setWorkerFactory(workerFactory)
+            .build()
+
     override fun onCreate() {
         super.onCreate()
         // Cargar librería nativa de SQLCipher antes de cualquier operación de base de datos

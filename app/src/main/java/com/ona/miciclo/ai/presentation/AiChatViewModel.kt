@@ -91,12 +91,11 @@ class AiChatViewModel @Inject constructor(
                     "La usuaria no tiene registros previos."
                 }
 
-                // Construcción de la consulta estructurada con el template oficial de chat de Gemma sin espacios extra
-                val systemPrompt = "<start_of_turn>user\n" +
-                        "Instrucciones: Eres Ona, la asistente de salud e IA local de esta app de ciclo menstrual. Responde en español de forma breve, empática y clara. No tienes conexión a internet, por lo que toda la información es 100% privada y local.\n" +
-                        "$promptContext\n\n" +
-                        "$text<end_of_turn>\n" +
-                        "<start_of_turn>model\n"
+                // Prompt Qwen3 en formato ChatML (motor llama.cpp/GGUF).
+                // Sin /no_think el modelo base emite bloques "thinking..." antes de responder.
+                val system = "Instrucciones: Eres Ona, la asistente de salud e IA local de esta app de ciclo menstrual. Responde en español de forma breve, empática y clara. No tienes conexión a internet, por lo que toda la información es 100% privada y local.\n" +
+                        promptContext
+                val systemPrompt = com.ona.miciclo.ai.domain.Qwen3Prompt.format(system, text)
 
                 // Crear un mensaje vacío para el asistente
                 val assistantMessageId = UUID.randomUUID().toString()

@@ -27,7 +27,7 @@ class SettingsViewModel @Inject constructor(
     private val updateManager: com.ona.miciclo.core.update.UpdateManager,
     private val userPreferencesDao: UserPreferencesDao,
     private val syncManager: SupabaseSyncManager,
-    private val modelDownloader: com.ona.miciclo.ai.data.ModelDownloader,
+    private val ggufModelDownloader: com.ona.miciclo.ai.data.GgufModelDownloader,
     private val inferenceEngine: com.ona.miciclo.ai.domain.IInferenceEngine
 ) : ViewModel() {
 
@@ -51,7 +51,7 @@ class SettingsViewModel @Inject constructor(
 
     init {
         _uiState.update {
-            it.copy(isAiModelDownloaded = modelDownloader.isModelDownloaded())
+            it.copy(isAiModelDownloaded = ggufModelDownloader.isModelDownloaded())
         }
     }
 
@@ -59,7 +59,7 @@ class SettingsViewModel @Inject constructor(
         aiDownloadJob?.cancel()
         aiDownloadJob = viewModelScope.launch {
             _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
-            modelDownloader.downloadModel().collect { state ->
+            ggufModelDownloader.downloadModel().collect { state ->
                 when (state) {
                     is com.ona.miciclo.ai.data.DownloadState.Downloading -> {
                         _uiState.update { it.copy(aiDownloadProgress = state.progress) }
@@ -91,7 +91,7 @@ class SettingsViewModel @Inject constructor(
 
     fun deleteAiModel() {
         viewModelScope.launch {
-            val success = modelDownloader.deleteModel()
+            val success = ggufModelDownloader.deleteModel()
             if (success) {
                 _uiState.update {
                     it.copy(
@@ -252,9 +252,15 @@ class SettingsViewModel @Inject constructor(
     fun repairAiModel() {
         viewModelScope.launch {
             _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
-            val deletedAny = modelDownloader.deleteCorruptFiles()
-            val statusMessage = if (deletedAny) "Reparando y descargando archivos corruptos..." else "Verificando archivos de modelo..."
-            _uiState.update { it.copy(message = statusMessage) }
+            val incomplete = !ggufModelDownloader.isModelDownloaded()
+            if (incomplete) {
+                ggufModelDownloader.deleteModel()
+                _uiState.update { it.copy(message = "Reparando y descargando el modelo Qwen3-4B..." ) }
+            } else {
+                _uiState.update { it.copy(message = "Modelo verificado, sin errores.") }
+                _uiState.update { it.copy(isDownloadingAi = false) }
+                return@launch
+            }
             downloadAiModel()
         }
     }

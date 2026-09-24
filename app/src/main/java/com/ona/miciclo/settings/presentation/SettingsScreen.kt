@@ -284,7 +284,7 @@ fun SettingsScreen(
                     Text("Inteligencia Artificial Local (LLM)", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.height(8.dp))
                     Text(
-                        text = "Descarga el modelo multimodal Qwen2-VL 2B (1.2 GB) para habilitar interpretaciones avanzadas 100% locales, privadas y sin necesidad de internet.",
+                        text = "Descarga el modelo Qwen3-4B (2.5 GB, motor llama.cpp) para habilitar el asistente de IA 100% local, privado y sin necesidad de internet.",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -292,7 +292,7 @@ fun SettingsScreen(
  
                     if (uiState.isAiModelDownloaded) {
                         Text(
-                            text = "✅ Modelo Qwen2-VL 2B descargado e inicializado en disco (1.2 GB)",
+                            text = "✅ Modelo Qwen3-4B descargado en disco (2.5 GB)",
                             style = MaterialTheme.typography.bodyMedium,
                             fontWeight = androidx.compose.ui.text.font.FontWeight.Bold,
                             color = MaterialTheme.colorScheme.primary
@@ -314,7 +314,7 @@ fun SettingsScreen(
                         )
                     } else if (uiState.isDownloadingAi) {
                         Text(
-                            text = "Descargando modelo neuronal... ${(uiState.aiDownloadProgress * 100).toInt()}%",
+                            text = "Descargando modelo Qwen3-4B... ${(uiState.aiDownloadProgress * 100).toInt()}%",
                             style = MaterialTheme.typography.bodySmall
                         )
                         Spacer(modifier = Modifier.height(8.dp))
@@ -329,7 +329,7 @@ fun SettingsScreen(
                         )
                     } else {
                         OnaButton(
-                            text = "📥 Descargar modelo Qwen2-VL 2B (1.2 GB)",
+                            text = "📥 Descargar modelo Qwen3-4B (2.5 GB)",
                             onClick = { showDownloadSpecsDialog = true }
                         )
                         uiState.aiDownloadError?.let { error ->
@@ -509,14 +509,14 @@ fun SettingsScreen(
             text = {
                 Column {
                     Text(
-                        text = "Para procesar Qwen2-VL localmente (offline) y habilitar visión e interpretación sin internet, tu dispositivo móvil debe cumplir con los siguientes requisitos mínimos y recomendados:",
+                        text = "Para procesar Qwen3-4B localmente (offline) sin internet, tu dispositivo móvil debe cumplir con los siguientes requisitos mínimos y recomendados:",
                         style = MaterialTheme.typography.bodyMedium
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     Text(
                         text = "Requisitos Mínimos:\n" +
-                                "• RAM disponible: 4 GB\n" +
-                                "• Almacenamiento libre: 1.5 GB\n" +
+                                "• RAM disponible: 6 GB\n" +
+                                "• Almacenamiento libre: 3.5 GB\n" +
                                 "• Procesador de 64 bits (ARM64-v8a)\n" +
                                 "• Sistema Operativo: Android 8.0+",
                         style = MaterialTheme.typography.bodySmall,

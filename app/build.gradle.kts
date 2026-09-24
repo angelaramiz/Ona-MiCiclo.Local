@@ -11,6 +11,7 @@ plugins {
 android {
     namespace = "com.ona.miciclo"
     compileSdk = 35
+    ndkVersion = "27.0.12077973"
 
     defaultConfig {
         applicationId = "com.ona.miciclo"
@@ -36,11 +37,18 @@ android {
         ndk {
             abiFilters += "arm64-v8a"
         }
+
+        externalNativeBuild {
+            cmake {
+                arguments += "-DANDROID_STL=c++_shared"
+                cppFlags += "-std=c++17"
+            }
+        }
     }
 
     buildTypes {
         release {
-            isMinifyEnabled = false // MNN native JNI requires it disabled
+            isMinifyEnabled = false // llama.cpp/MNN native JNI requires it disabled
             isShrinkResources = false
             signingConfig = signingConfigs.getByName("debug")
             proguardFiles(
@@ -51,6 +59,12 @@ android {
         debug {
             isMinifyEnabled = false
             versionNameSuffix = "-debug"
+            // x86_64 SOLO en debug para QA en emulador. Release queda arm64-only.
+            ndk {
+                abiFilters += listOf("arm64-v8a", "x86_64")
+            }
+            // TDD: reporte de cobertura JaCoCo para testDebugUnitTest.
+            enableUnitTestCoverage = true
         }
     }
 
@@ -65,9 +79,24 @@ android {
         jvmTarget = "17"
     }
 
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+
+    // Fase 2 GGUF: módulo nativo llama.cpp (llama.cpp v0.5.0 vía FetchContent).
+    // El .so resultante se llama "ona_llama" (ver LlamaCppBridge).
+    externalNativeBuild {
+        cmake {
+            path = file("src/main/cpp/CMakeLists.txt")
+            version = "3.22.1"
+        }
     }
 
     packaging {
@@ -113,6 +142,9 @@ dependencies {
     implementation(libs.hilt.android)
     ksp(libs.hilt.compiler)
     implementation(libs.hilt.navigation.compose)
+
+    // ── WorkManager (sync periódico en segundo plano) ──
+    implementation(libs.androidx.work.runtime.ktx)
 
     // ── Firebase Auth ONLY (zero analytics, zero Firestore) ──
     implementation(platform(libs.firebase.bom))

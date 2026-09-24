@@ -29,6 +29,20 @@
         android:theme="@style/Theme.OnaMiCiclo"
         tools:targetApi="34">
 
+        <!-- WorkManager con Hilt: eliminar el inicializador por defecto para que
+             WorkManager use la Configuration.Provider de OnaApp (HiltWorkerFactory).
+             Sin esto, el @HiltWorker SyncWorker no podría construirse. -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <!-- Provider para compartir de forma segura el archivo APK descargado con el instalador de Android -->
         <provider
             android:name="androidx.core.content.FileProvider"

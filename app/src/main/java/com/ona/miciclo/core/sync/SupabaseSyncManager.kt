@@ -160,6 +160,13 @@ class SupabaseSyncManager(
             userPreferencesDao.insertOrUpdate(UserPreferencesEntity(userId = hostessId, userRole = "hostess"))
         }
 
+        // 5. Backfill de datos existentes: para perfiles que ya tenían datos locales
+        // antes de activar el modo pareja, subirlos YA para que el partner los reciba
+        // al vincularse (sin depender del loop de auto-sync de 15s ni de que la app
+        // esté abierta después).
+        runCatching { syncHostessDataToCloudOnce(hostessId) }
+            .onFailure { it.printStackTrace() }
+
         code
     }
 
@@ -265,7 +272,12 @@ class SupabaseSyncManager(
                         }
                     }
                     if (cycleEntities.isNotEmpty()) {
-                        cycleRecordDao.clearAndInsertCycles(userId, cycleEntities)
+                        // MERGE (upsert por PK) en vez de clearAndInsert: el dispositivo
+                        // puede tener datos locales más ricos que el snapshot de la nube
+                        // (p. ej. perfiles con datos previos al modo pareja). clearAndInsert
+                        // los reemplazaría por el snapshot parcial y el siguiente upload
+                        // subiría el set reducido (pérdida permanente).
+                        cycleRecordDao.insertAll(cycleEntities)
                     }
                 }
 
@@ -283,7 +295,7 @@ class SupabaseSyncManager(
                         }
                     }
                     if (logEntities.isNotEmpty()) {
-                        dailyLogDao.clearAndInsertLogs(userId, logEntities)
+                        dailyLogDao.insertAll(logEntities)
                     }
                 }
             } catch (e: Exception) {
@@ -305,66 +317,69 @@ class SupabaseSyncManager(
         partnerSyncJob = scope.launch {
             while (true) {
                 try {
-                    val syncPassphrase = keystoreManager.getSyncPassphrase()
-                        ?: keystoreManager.getOrCreateDatabasePassphrase()
-                    val decryptionKey = Base64.encodeToString(syncPassphrase, Base64.NO_WRAP)
-
-                    val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
-                    val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
-                    // #region debug-session: partner-sync-diag
-                    var decryptOk = 0
-                    var decryptFail = 0
-                    // #endregion
-                    val cycleEntities = cyclesRows.mapNotNull { row ->
-                        try {
-                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                            // #region debug-session: partner-sync-diag
-                            decryptOk++
-                            // #endregion
-                            gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
-                        } catch (e: Exception) {
-                            // #region debug-session: partner-sync-diag
-                            decryptFail++
-                            // #endregion
-                            null
-                        }
-                    }
-                    // #region debug-session: partner-sync-diag
-                    com.ona.miciclo.core.debug.DebugTelemetry.emit(
-                        hypothesisId = "E",
-                        location = "SupabaseSyncManager:startPartnerSyncListener",
-                        msg = "[DEBUG] Sync partner ciclos",
-                        data = org.json.JSONObject()
-                            .put("fetched", cyclesRows.size)
-                            .put("decryptOk", decryptOk)
-                            .put("decryptFail", decryptFail)
-                            .put("toInsert", cycleEntities.size)
-                    )
-                    // #endregion
-                    if (cycleEntities.isNotEmpty()) {
-                        cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
-                    }
-
-                    val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
-                    val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
-                    val logEntities = logsRows.mapNotNull { row ->
-                        try {
-                            val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                            val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                            gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = hostessId)
-                        } catch (e: Exception) {
-                            null
-                        }
-                    }
-                    if (logEntities.isNotEmpty()) {
-                        dailyLogDao.clearAndInsertLogs(hostessId, logEntities)
-                    }
+                    downloadHostessDataOnce(hostessId)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
                 delay(15000)
             }
+        }
+    }
+
+    /**
+     * Descarga los ciclos y logs de la hostess, los desencripta con la passphrase
+     * de sync y reemplaza la vista local (espejo de solo lectura). Lo usa tanto el
+     * listener de 15s como `SyncWorker` (WorkManager, app cerrada).
+     */
+    private suspend fun downloadHostessDataOnce(hostessId: String) {
+        val syncPassphrase = keystoreManager.getSyncPassphrase()
+            ?: keystoreManager.getOrCreateDatabasePassphrase()
+        val decryptionKey = Base64.encodeToString(syncPassphrase, Base64.NO_WRAP)
+
+        val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
+        val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
+        val cycleEntities = cyclesRows.mapNotNull { row ->
+            try {
+                val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (cycleEntities.isNotEmpty()) {
+            cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities)
+        }
+
+        val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
+        val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
+        val logEntities = logsRows.mapNotNull { row ->
+            try {
+                val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
+                val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
+                gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = hostessId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        if (logEntities.isNotEmpty()) {
+            dailyLogDao.clearAndInsertLogs(hostessId, logEntities)
+        }
+    }
+
+    /**
+     * Un ciclo de sync completo para un usuario, usado por `SyncWorker` (WorkManager)
+     * para mantener los datos sincronizados aunque la app esté cerrada.
+     * - Partner: descarga los datos de la hostess (vista solo lectura).
+     * - Hostess/solo: sube todos sus datos locales a la nube.
+     */
+    suspend fun runSyncOnce(userId: String) {
+        val prefs = userPreferencesDao.getByUserId(userId) ?: return
+        val linkedId = prefs.linkedUserId
+        if (prefs.userRole == "partner" && !linkedId.isNullOrEmpty()) {
+            downloadHostessDataOnce(linkedId)
+        } else {
+            syncHostessDataToCloudOnce(userId)
         }
     }
 

@@ -43,7 +43,7 @@ abstract class AppModule {
 
     @Binds
     @Singleton
-    abstract fun bindInferenceEngine(impl: com.ona.miciclo.ai.data.LlamaInferenceEngine): com.ona.miciclo.ai.domain.IInferenceEngine
+    abstract fun bindInferenceEngine(impl: com.ona.miciclo.ai.data.LlamaCppInferenceEngine): com.ona.miciclo.ai.domain.IInferenceEngine
 
     companion object {
         @Provides

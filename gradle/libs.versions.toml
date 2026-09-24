@@ -27,6 +27,9 @@ sqliteKtx = "2.4.0"
 hilt = "2.53.1"
 hiltNavigationCompose = "1.2.0"
 
+# WorkManager (sync periódico en segundo plano)
+workManager = "2.9.1"
+
 # Firebase (Auth ONLY — zero analytics)
 firebaseBom = "33.7.0"
 
@@ -89,6 +92,7 @@ androidx-sqlite-ktx = { group = "androidx.sqlite", name = "sqlite-ktx", version.
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-compiler", version.ref = "hilt" }
 hilt-navigation-compose = { group = "androidx.hilt", name = "hilt-navigation-compose", version.ref = "hiltNavigationCompose" }
+androidx-work-runtime-ktx = { group = "androidx.work", name = "work-runtime-ktx", version.ref = "workManager" }
 
 # CameraX
 androidx-camera-core = { group = "androidx.camera", name = "camera-core", version.ref = "camerax" }
