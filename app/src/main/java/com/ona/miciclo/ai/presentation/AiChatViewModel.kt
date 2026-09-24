@@ -65,6 +65,8 @@ class AiChatViewModel @Inject constructor(
         }
 
         viewModelScope.launch {
+            // Id del mensaje vacío del asistente (para quitarlo si falla la generación).
+            var assistantMessageId: String? = null
             try {
                 // Resolver el userId correcto (hostess o partner vinculado)
                 val myUid = authRepository.currentUser.value?.uid ?: ""
@@ -98,8 +100,8 @@ class AiChatViewModel @Inject constructor(
                 val systemPrompt = com.ona.miciclo.ai.domain.Qwen3Prompt.format(system, text)
 
                 // Crear un mensaje vacío para el asistente
-                val assistantMessageId = UUID.randomUUID().toString()
-                val initialAssistantMessage = ChatMessage(id = assistantMessageId, text = "", isUser = false)
+                assistantMessageId = UUID.randomUUID().toString()
+                val initialAssistantMessage = ChatMessage(id = assistantMessageId!!, text = "", isUser = false)
                 
                 _uiState.update {
                     it.copy(messages = it.messages + initialAssistantMessage)
@@ -121,7 +123,25 @@ class AiChatViewModel @Inject constructor(
                     }
                 }
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = "Error al procesar: ${e.message}") }
+                // Quitar la burbuja vacía del asistente y mostrar un error accionable.
+                // El caso más común es que el modelo aún no esté descargado.
+                val raw = e.message ?: ""
+                val friendly = if (raw.contains("GGUF", ignoreCase = true) ||
+                    raw.contains("modelo", ignoreCase = true) ||
+                    raw.contains("librería nativa", ignoreCase = true) ||
+                    raw.contains("llama.cpp", ignoreCase = true)
+                ) {
+                    "El modelo de IA aún no está listo. Descárgalo en Configuración → " +
+                            "Inteligencia Artificial Local y vuelve a intentarlo."
+                } else {
+                    "Error al procesar: ${e.message}"
+                }
+                _uiState.update { state ->
+                    state.copy(
+                        messages = state.messages.filterNot { it.id == assistantMessageId },
+                        error = friendly
+                    )
+                }
             } finally {
                 _uiState.update { it.copy(isGenerating = false) }
             }
@@ -130,5 +150,9 @@ class AiChatViewModel @Inject constructor(
 
     private suspend fun delay(time: Long) {
         kotlinx.coroutines.delay(time)
+    }
+
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 }

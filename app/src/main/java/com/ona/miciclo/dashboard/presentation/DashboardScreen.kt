@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -19,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
 import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
+import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -30,6 +33,9 @@ fun DashboardScreen(
     val uiState by viewModel.uiState.collectAsState()
     val scrollState = rememberScrollState()
     val dateFormatter = DateTimeFormatter.ofPattern("d 'de' MMMM yyyy", Locale("es"))
+    val headerDateFormatter = DateTimeFormatter.ofPattern("EEEE d 'de' MMMM", Locale("es"))
+    val todayLabel = LocalDate.now().format(headerDateFormatter)
+        .replaceFirstChar { it.uppercase() }
 
     Scaffold(
         topBar = { OnaTopBar(title = "Dashboard") }
@@ -41,18 +47,33 @@ fun DashboardScreen(
                 .verticalScroll(scrollState)
                 .padding(16.dp)
         ) {
-            if (uiState.isPartner) {
-                Text(
-                    text = "Modo pareja",
-                    style = MaterialTheme.typography.titleMedium
-                )
-                Text(
-                    text = "Viendo el calendario de tu pareja",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+            // Cabecera: saludo + fecha + modo (visible de un vistazo).
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer
+                ),
+                shape = MaterialTheme.shapes.large
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = if (uiState.isPartner) "👁️ Modo pareja" else "🌸 Mi ciclo",
+                        style = MaterialTheme.typography.titleLarge,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = if (uiState.isPartner) {
+                            "Viendo el calendario de tu pareja · $todayLabel"
+                        } else {
+                            todayLabel
+                        },
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
             }
+            Spacer(modifier = Modifier.height(16.dp))
 
             uiState.latestPeriodStart?.let { last ->
                 Text(

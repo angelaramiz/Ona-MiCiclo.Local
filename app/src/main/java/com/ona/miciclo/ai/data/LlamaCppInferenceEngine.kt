@@ -44,7 +44,9 @@ internal object LlamaCppBridge {
  * Es el motor activo de la app (binding en AppModule). La ruta del .gguf la
  * provee `GgufModelDownloader.modelFile`.
  */
-class LlamaCppInferenceEngine @Inject constructor() : IInferenceEngine {
+class LlamaCppInferenceEngine @Inject constructor(
+    private val ggufModelDownloader: GgufModelDownloader
+) : IInferenceEngine {
 
     private var handle: Long = 0L
 
@@ -74,8 +76,15 @@ class LlamaCppInferenceEngine @Inject constructor() : IInferenceEngine {
     }
 
     override fun generateResponse(prompt: String): Flow<String> = flow {
+        // Carga perezosa: el chat nunca llama loadModel() explícitamente, así que
+        // se carga automáticamente al primer uso si el .gguf ya está descargado.
         if (!isModelLoaded()) {
-            throw IllegalStateException("Modelo GGUF no cargado. Llama loadModel() primero.")
+            val path = ggufModelDownloader.modelFile.absolutePath
+            val result = loadModel(path)
+            if (result.isFailure) {
+                throw result.exceptionOrNull()
+                    ?: IllegalStateException("No se pudo cargar el modelo de IA.")
+            }
         }
         // Qwen3Prompt.format lo aplica el llamador; aquí se sanea por seguridad.
         val output = LlamaCppBridge.generateNative(handle, prompt, 512)

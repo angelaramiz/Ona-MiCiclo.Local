@@ -136,6 +136,28 @@ fun AiChatDialog(
 
                 Divider()
 
+                // Error visible (p. ej. modelo no descargado) con acción para reintentar.
+                uiState.error?.let { errorText ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "⚠️ $errorText",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f)
+                        )
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Cerrar")
+                        }
+                    }
+                    Divider()
+                }
+
                 // Barra de Entrada de Texto
                 Row(
                     modifier = Modifier

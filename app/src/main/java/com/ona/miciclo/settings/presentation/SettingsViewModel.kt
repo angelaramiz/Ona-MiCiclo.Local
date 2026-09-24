@@ -236,7 +236,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(isDownloadingAi = true, aiDownloadError = null) }
             try {
                 inferenceEngine.unloadModel()
-                val result = inferenceEngine.loadModel("")
+                val result = inferenceEngine.loadModel(ggufModelDownloader.modelFile.absolutePath)
                 if (result.isSuccess) {
                     _uiState.update {
                         it.copy(
