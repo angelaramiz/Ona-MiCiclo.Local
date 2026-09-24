@@ -98,6 +98,35 @@ fun DashboardScreen(
                 )
             }
 
+            // Insights de Ona (A5): observaciones con reglas sobre tus datos.
+            if (uiState.insights.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    shape = MaterialTheme.shapes.large
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Text(
+                            text = "✨ Insights de Ona",
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSecondaryContainer
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        uiState.insights.forEach { insight ->
+                            Text(
+                                text = "• $insight",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                    }
+                }
+            }
+
             uiState.error?.let { err ->
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(

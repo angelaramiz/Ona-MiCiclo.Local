@@ -2,9 +2,14 @@ package com.ona.miciclo.ai.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.ona.miciclo.ai.domain.ConversationalLogParser
+import com.ona.miciclo.ai.domain.CycleInsightProvider
 import com.ona.miciclo.ai.domain.IInferenceEngine
 import com.ona.miciclo.auth.domain.repository.AuthRepository
+import com.ona.miciclo.calendar.domain.model.CycleRecord
 import com.ona.miciclo.calendar.domain.repository.CycleRepository
+import com.ona.miciclo.calendar.domain.usecase.CalculateCyclePredictionUseCase
+import com.ona.miciclo.calendar.domain.usecase.SaveDailyLogUseCase
 import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -12,6 +17,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.UUID
 import javax.inject.Inject
 
@@ -33,7 +39,9 @@ class AiChatViewModel @Inject constructor(
     private val inferenceEngine: IInferenceEngine,
     private val cycleRepository: CycleRepository,
     private val authRepository: AuthRepository,
-    private val userPreferencesDao: UserPreferencesDao
+    private val userPreferencesDao: UserPreferencesDao,
+    private val saveDailyLogUseCase: SaveDailyLogUseCase,
+    private val predictionUseCase: CalculateCyclePredictionUseCase
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AiChatUiState())
@@ -82,13 +90,65 @@ class AiChatViewModel @Inject constructor(
                 // Obtener registros diarios recientes para contexto sintotérmico
                 val logs = cycleRepository.getAllDailyLogsSync(resolvedUserId)
 
+                // Registro conversacional (A5): si el mensaje trae datos
+                // ("registra dolor de cabeza"), se guarda SIN necesitar el modelo.
+                // Solo la hostess puede registrar (el partner es solo lectura).
+                val isPartner = prefs?.userRole == "partner"
+                if (!isPartner) {
+                    val parsed = ConversationalLogParser.parse(text)
+                    if (parsed.matched) {
+                        val today = LocalDate.now()
+                        if (parsed.isPeriodStart) {
+                            cycleRepository.saveCycleRecord(
+                                CycleRecord(userId = resolvedUserId, fechaInicioMenstruacion = today)
+                            )
+                        } else {
+                            val existing = cycleRepository.getDailyLogByDate(resolvedUserId, today)
+                            val merged = ConversationalLogParser.merge(existing, resolvedUserId, today, parsed)
+                            saveDailyLogUseCase(merged)
+                        }
+                        val summary = ConversationalLogParser.describe(parsed)
+                        val confirmation = if (parsed.isPeriodStart) {
+                            "¡Periodo registrado! Nuevo ciclo iniciado hoy 🩸"
+                        } else {
+                            "Registrado: $summary ✓"
+                        }
+                        _uiState.update {
+                            it.copy(
+                                messages = it.messages + ChatMessage(text = confirmation, isUser = false),
+                                isGenerating = false
+                            )
+                        }
+                        return@launch
+                    }
+                }
+
+                // Predicción + insights para enriquecer el contexto del modelo.
+                val predictionText = try {
+                    val prediction = predictionUseCase(resolvedUserId)
+                    if (prediction != null) {
+                        val insights = CycleInsightProvider.insights(
+                            prediction,
+                            logs.filter { it.fecha >= LocalDate.now().minusDays(30) }
+                        )
+                        "- Predicción: día ${prediction.diaDelCiclo} de ${prediction.duracionPromedio}, " +
+                            "fase ${prediction.faseActual}, próximo periodo ${prediction.proximaMenstruacion}.\n" +
+                            (if (insights.isNotEmpty()) "- Insights: ${insights.joinToString(" ")}\n" else "")
+                    } else {
+                        ""
+                    }
+                } catch (e: Exception) {
+                    ""
+                }
+
                 // Generar contexto biológico del usuario
                 val promptContext = if (ciclos.isNotEmpty() || logs.isNotEmpty()) {
                     "Contexto de la usuaria:\n" +
                             "- Ciclos recientes: ${ciclos.size} registrados.\n" +
                             "- Registros de moco/temperatura en el mes: ${logs.size}.\n" +
                             "- Última temperatura: ${logs.lastOrNull()?.temperaturaBasal?.let { "$it°C" } ?: "no registrada"}.\n" +
-                            "- Último moco cervical: ${logs.lastOrNull()?.mocoCervical ?: "no registrado"}.\n"
+                            "- Último moco cervical: ${logs.lastOrNull()?.mocoCervical ?: "no registrado"}.\n" +
+                            predictionText
                 } else {
                     "La usuaria no tiene registros previos."
                 }

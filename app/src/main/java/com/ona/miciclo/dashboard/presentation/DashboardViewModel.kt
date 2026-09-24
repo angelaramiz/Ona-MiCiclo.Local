@@ -58,12 +58,20 @@ class DashboardViewModel @Inject constructor(
             }.getOrNull()
 
             val predictionResult = runCatching { calculateCyclePredictionUseCase(activeUserId) }
+            val prediction = predictionResult.getOrNull()
+            // Insights con reglas (A5): predicción + registros de los últimos 30 días.
+            val insights = runCatching {
+                val logs = cycleRepository.getAllDailyLogsSync(activeUserId)
+                    .filter { it.fecha >= LocalDate.now().minusDays(30) }
+                com.ona.miciclo.ai.domain.CycleInsightProvider.insights(prediction, logs)
+            }.getOrDefault(emptyList())
             _uiState.update {
                 it.copy(
                     isLoading = false,
                     hasAnyCycleData = count > 0,
                     latestPeriodStart = latestPeriodStart,
-                    prediction = predictionResult.getOrNull(),
+                    prediction = prediction,
+                    insights = insights,
                     error = predictionResult.exceptionOrNull()?.localizedMessage
                 )
             }
@@ -79,5 +87,6 @@ data class DashboardUiState(
     val hasAnyCycleData: Boolean = true,
     val latestPeriodStart: LocalDate? = null,
     val prediction: CyclePrediction? = null,
+    val insights: List<String> = emptyList(),
     val error: String? = null
 )
