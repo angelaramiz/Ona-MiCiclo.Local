@@ -1,4 +1,4 @@
-plugins {
+﻿plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.serialization)
@@ -17,8 +17,8 @@ android {
         applicationId = "com.ona.miciclo"
         minSdk = 26
         targetSdk = 34
-        versionCode = 41
-        versionName = "1.0.1-phase1"
+        versionCode = 42
+        versionName = "1.0.2-phase1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
