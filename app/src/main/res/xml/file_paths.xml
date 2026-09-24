@@ -2,4 +2,6 @@
 <paths>
     <!-- Directorio en caché de almacenamiento interno de la app -->
     <cache-path name="updates" path="updates/" />
+    <!-- Informes PDF para compartir con el médico -->
+    <cache-path name="reports" path="reports/" />
 </paths>

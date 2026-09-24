@@ -164,6 +164,19 @@ fun SettingsScreen(
         }
     }
 
+    LaunchedEffect(uiState.reportUri) {
+        uiState.reportUri?.let { uriString ->
+            val uri = android.net.Uri.parse(uriString)
+            val send = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+                type = "application/pdf"
+                putExtra(android.content.Intent.EXTRA_STREAM, uri)
+                addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            context.startActivity(android.content.Intent.createChooser(send, "Compartir informe médico"))
+            viewModel.clearReportUri()
+        }
+    }
+
     LaunchedEffect(uiState.updateError) {
         uiState.updateError?.let {
             snackbarHostState.showSnackbar(it)
@@ -368,6 +381,15 @@ fun SettingsScreen(
                 onClick = {
                     // TODO: Abrir file picker con SAF
                 }
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Informe médico (A4): PDF local para compartir con el doctor.
+            OnaOutlinedButton(
+                text = if (uiState.isGeneratingReport) "🩺 Generando..." else "🩺 Informe para tu médico",
+                onClick = { viewModel.generateMedicalReport() },
+                enabled = !uiState.isGeneratingReport
             )
 
             Spacer(modifier = Modifier.height(16.dp))

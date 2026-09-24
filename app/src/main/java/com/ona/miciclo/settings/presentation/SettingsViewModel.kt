@@ -35,6 +35,8 @@ class SettingsViewModel @Inject constructor(
     private val syncManager: SupabaseSyncManager,
     private val ggufModelDownloader: com.ona.miciclo.ai.data.GgufModelDownloader,
     private val inferenceEngine: com.ona.miciclo.ai.domain.IInferenceEngine,
+    private val cycleRepository: com.ona.miciclo.calendar.domain.repository.CycleRepository,
+    private val predictionUseCase: com.ona.miciclo.calendar.domain.usecase.CalculateCyclePredictionUseCase,
     @ApplicationContext private val context: Context
 ) : ViewModel() {
 
@@ -201,6 +203,39 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    fun generateMedicalReport() {
+        viewModelScope.launch {
+            _uiState.update { it.copy(isGeneratingReport = true, error = null) }
+            try {
+                val periods = cycleRepository.getAllCycleRecordsSync(userId)
+                val logs = cycleRepository.getAllDailyLogsSync(userId)
+                val prediction = try {
+                    predictionUseCase(userId)
+                } catch (e: Exception) {
+                    null
+                }
+                val report = com.ona.miciclo.settings.domain.report.MedicalReportBuilder.build(
+                    periods = periods,
+                    logs = logs,
+                    nextPeriod = prediction?.proximaMenstruacion
+                )
+                val file = com.ona.miciclo.settings.domain.report.MedicalReportPdf.write(context, report)
+                val uri = androidx.core.content.FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                _uiState.update { it.copy(isGeneratingReport = false, reportUri = uri.toString()) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(isGeneratingReport = false, error = "Error al generar informe: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    fun clearReportUri() {
+        _uiState.update { it.copy(reportUri = null) }
+    }
+
     fun generateInvitationCode() {
         viewModelScope.launch {
             _uiState.update { it.copy(isGeneratingCode = true, error = null) }
@@ -318,5 +353,7 @@ data class SettingsUiState(
     val isAiModelDownloaded: Boolean = false,
     val isDownloadingAi: Boolean = false,
     val aiDownloadProgress: Float = 0f,
-    val aiDownloadError: String? = null
+    val aiDownloadError: String? = null,
+    val isGeneratingReport: Boolean = false,
+    val reportUri: String? = null
 )
