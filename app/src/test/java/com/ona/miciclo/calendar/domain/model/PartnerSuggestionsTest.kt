@@ -86,4 +86,47 @@ class PartnerSuggestionsTest {
         assertEquals(once.notas, twice.notas)
         assertEquals(listOf("ovulacion"), twice.sintomasBasicos)
     }
+
+    // ── B2: notas de apoyo (tipos-mensaje) ──
+
+    @Test
+    fun `notas de apoyo detectadas y mapeadas`() {
+        val notes = listOf(
+            PartnerSuggestions.SUPPORT_ANIMO,
+            PartnerSuggestions.SUPPORT_DESCANSA,
+            PartnerSuggestions.SUPPORT_ORGULLO,
+            PartnerSuggestions.SUPPORT_ABRAZO
+        )
+        notes.forEach {
+            assertTrue(PartnerSuggestions.isSupportNote(it))
+            assertTrue(PartnerSuggestions.isKnown(it))
+            assertTrue(PartnerSuggestions.noteMessage(it)!!.isNotBlank())
+        }
+        assertFalse(PartnerSuggestions.isSupportNote(PartnerSuggestions.START_PERIOD))
+        assertFalse(PartnerSuggestions.isSupportNote("FUTURE_TYPE"))
+        assertEquals(null, PartnerSuggestions.noteMessage(PartnerSuggestions.START_PERIOD))
+    }
+
+    @Test
+    fun `textos de notas hablan de mensaje no de periodo`() {
+        val type = PartnerSuggestions.SUPPORT_ANIMO
+        val msg = PartnerSuggestions.noteMessage(type)!!
+        assertTrue(PartnerSuggestions.dialogText(type, "2026-09-24").contains(msg))
+        assertTrue(PartnerSuggestions.notificationText(type, "2026-09-24").contains(msg))
+        assertEquals("Mensaje enviado 💌", PartnerSuggestions.sentMessage(type))
+        assertEquals("💌 ¡Mensaje recibido!", PartnerSuggestions.approveMessage(type))
+        assertEquals("Mensaje de tu pareja 💌", PartnerSuggestions.dialogTitle(type))
+    }
+
+    @Test
+    fun `estado de nota aprobada dice visto`() {
+        val line = PartnerSuggestions.statusLine(
+            PartnerSuggestions.SUPPORT_ABRAZO, "2026-09-24", "APPROVED"
+        )
+        assertTrue(line.contains("visto"))
+        val pending = PartnerSuggestions.statusLine(
+            PartnerSuggestions.SUPPORT_ABRAZO, "2026-09-24", "PENDING"
+        )
+        assertTrue(pending.contains("pendiente"))
+    }
 }

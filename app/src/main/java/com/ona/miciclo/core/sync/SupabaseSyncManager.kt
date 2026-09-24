@@ -57,6 +57,16 @@ class SupabaseSyncManager(
     private val supabaseUrl = "https://cjwozffwcqqiwsmjgjjo.supabase.co"
     private val supabaseKey = "sb_publishable_m6WEXMesgxH48iBX9M3v1w_xehXf1z9"
 
+    companion object {
+        /**
+         * ID de fila en la nube: namespaced por usuario para que dos installs
+         * frescos (mismos IDs locales 1, 2, ...) no colisionen en la PK (409
+         * silencioso que impedía subir datos nuevos). La descarga ignora este
+         * id (remap a 0), así que es seguro cambiar el formato.
+         */
+        fun cloudRowId(userId: String, localId: String) = "${userId}_$localId"
+    }
+
     // Modelos para la REST API de Supabase
     data class InvitationRow(
         val code: String,
@@ -227,7 +237,7 @@ class SupabaseSyncManager(
             val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
 
             val row = EncryptedPayloadRow(
-                id = cycle.id.toString(),
+                id = cloudRowId(hostessId, cycle.id.toString()),
                 user_id = hostessId,
                 encrypted_payload = base64Payload
             )
@@ -241,7 +251,7 @@ class SupabaseSyncManager(
             val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
 
             val row = EncryptedPayloadRow(
-                id = log.fecha.toString(),
+                id = cloudRowId(hostessId, log.fecha.toString()),
                 user_id = hostessId,
                 encrypted_payload = base64Payload
             )

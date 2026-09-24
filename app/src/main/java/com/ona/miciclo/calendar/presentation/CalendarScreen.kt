@@ -69,6 +69,7 @@ fun CalendarScreen(
     val uiState by viewModel.uiState.collectAsState()
     var showChat by remember { mutableStateOf(false) }
     var showInitDialog by remember { mutableStateOf(false) }
+    var showSupportDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(uiState.message) {
@@ -231,6 +232,12 @@ fun CalendarScreen(
                         text = "Sugerir día de ovulación",
                         onClick = { viewModel.suggestOvulationDay(selectedDate) }
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    // Mensaje de apoyo (B2): el tipo ES el mensaje.
+                    OnaOutlinedButton(
+                        text = "Enviar mensaje de apoyo 💌",
+                        onClick = { showSupportDialog = true }
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     uiState.mySuggestionStatus?.let { status ->
                         Text(
@@ -318,22 +325,65 @@ fun CalendarScreen(
 
     // Diálogo de sugerencia pendiente del partner
     uiState.pendingSuggestion?.let { suggestion ->
+        val isNote = com.ona.miciclo.calendar.domain.model.PartnerSuggestions.isSupportNote(
+            suggestion.suggestion_type
+        )
         AlertDialog(
             onDismissRequest = { /* No dismiss sin decidir */ },
-            title = { Text("Sugerencia de tu pareja") },
+            title = {
+                Text(
+                    com.ona.miciclo.calendar.domain.model.PartnerSuggestions.dialogTitle(
+                        suggestion.suggestion_type
+                    )
+                )
+            },
             text = { Text(com.ona.miciclo.calendar.domain.model.PartnerSuggestions.dialogText(suggestion.suggestion_type, suggestion.suggested_date)) },
             confirmButton = {
                 Button(
                     onClick = { viewModel.approveSuggestion(suggestion) }
                 ) {
-                    Text("Aprobar")
+                    Text(if (isNote) "💌" else "Aprobar")
                 }
             },
+            // Las notas son un regalo: un toque las marca como vistas.
+            dismissButton = if (isNote) {
+                null
+            } else {
+                {
+                    TextButton(
+                        onClick = { viewModel.rejectSuggestion(suggestion) }
+                    ) {
+                        Text("Rechazar")
+                    }
+                }
+            }
+        )
+    }
+
+    // Diálogo de mensajes de apoyo (B2, partner): 4 mensajes predefinidos.
+    if (showSupportDialog) {
+        AlertDialog(
+            onDismissRequest = { showSupportDialog = false },
+            title = { Text("Mensaje de apoyo 💌") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    com.ona.miciclo.calendar.domain.model.PartnerSuggestions.NOTE_TYPES.forEach { type ->
+                        OnaOutlinedButton(
+                            text = com.ona.miciclo.calendar.domain.model.PartnerSuggestions.noteMessage(
+                                type
+                            ) ?: type,
+                            onClick = {
+                                viewModel.sendSupportNote(type)
+                                showSupportDialog = false
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = { },
             dismissButton = {
-                TextButton(
-                    onClick = { viewModel.rejectSuggestion(suggestion) }
-                ) {
-                    Text("Rechazar")
+                TextButton(onClick = { showSupportDialog = false }) {
+                    Text("Cancelar")
                 }
             }
         )

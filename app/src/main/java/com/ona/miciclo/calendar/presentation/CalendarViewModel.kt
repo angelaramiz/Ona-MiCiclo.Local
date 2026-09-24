@@ -76,6 +76,10 @@ class CalendarViewModel @Inject constructor(
             loadCurrentMonth()
             loadPrediction()
             loadPendingSuggestions()
+            // Estado de mis sugerencias (partner): en init para que esté visible
+            // al entrar, sin esperar al auto-refresh (el VM se recrea al cambiar
+            // de pestaña por el popUpTo de la navegación).
+            loadMySuggestionStatus()
             
             // Cargar sugerencias periódicamente cada 30 segundos si es la usuaria principal
             if (!isPartner) {
@@ -283,6 +287,20 @@ class CalendarViewModel @Inject constructor(
     fun suggestOvulationDay(date: LocalDate) =
         sendSuggestion(date, PartnerSuggestions.OVULATION_DAY)
 
+    /** Envía un mensaje de apoyo (B2): el tipo ES el mensaje, fecha = hoy. */
+    fun sendSupportNote(type: String) {
+        viewModelScope.launch {
+            try {
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                syncManager.sendPartnerSuggestion(userId, myUid, LocalDate.now(), type)
+                loadMySuggestionStatus()
+                _uiState.update { it.copy(message = PartnerSuggestions.sentMessage(type)) }
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = "Error al enviar mensaje: ${e.localizedMessage}") }
+            }
+        }
+    }
+
     private fun sendSuggestion(date: LocalDate, type: String) {
         viewModelScope.launch {
             try {
@@ -354,7 +372,8 @@ class CalendarViewModel @Inject constructor(
                 when (suggestion.suggestion_type) {
                     PartnerSuggestions.OVULATION_DAY -> confirmOvulationDay(suggestedDate)
                     PartnerSuggestions.START_PERIOD -> startNewPeriod(suggestedDate)
-                    // Tipo futuro/desconocido: solo marcar, sin efectos (seguridad)
+                    // Notas de apoyo y tipos futuros: solo marcar, sin efectos.
+                    else -> { }
                 }
                 syncManager.updateSuggestionStatus(suggestion.id!!, "APPROVED")
                 _uiState.update { it.copy(pendingSuggestion = null, message = PartnerSuggestions.approveMessage(suggestion.suggestion_type)) }
