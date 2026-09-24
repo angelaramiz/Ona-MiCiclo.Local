@@ -88,7 +88,10 @@ class MainActivity : ComponentActivity() {
         lifecycleScope.launch {
             authRepository.currentUser.collect { user ->
                 if (user != null) {
-                    val prefs = userPreferencesDao.getByUserId(user.uid)
+                    // Restaurar rol/vínculo desde la nube si este dispositivo no los
+                    // tiene (cambio de móvil).
+                    restoreRoleFromCloudIfMissing(user.uid, userPreferencesDao, syncManager)
+                    var prefs = userPreferencesDao.getByUserId(user.uid)
                     // #region debug-point C:startup-user-state
                     com.ona.miciclo.core.debug.DebugTelemetry.emit(
                         hypothesisId = "C",
@@ -121,17 +124,42 @@ class MainActivity : ComponentActivity() {
             OnaMiCicloTheme {
                 OnaNavigation(
                     userPreferencesDao = userPreferencesDao,
-                    authRepository = authRepository
+                    authRepository = authRepository,
+                    syncManager = syncManager
                 )
             }
         }
     }
 }
 
+/**
+ * Restaura rol/vínculo desde la nube si este dispositivo no los tiene
+ * (cambio de móvil). Sin esto, un partner en un móvil nuevo aparece como
+ * hostess y el sync no carga. Marca onboarding como completado porque es
+ * un usuario que regresa (evita repetir el onboarding).
+ */
+private suspend fun restoreRoleFromCloudIfMissing(
+    userId: String,
+    userPreferencesDao: com.ona.miciclo.data.local.dao.UserPreferencesDao,
+    syncManager: com.ona.miciclo.core.sync.SupabaseSyncManager
+) {
+    val prefs = userPreferencesDao.getByUserId(userId)
+    val hasRole = !prefs?.userRole.isNullOrEmpty() &&
+        !(prefs?.userRole == "partner" && prefs?.linkedUserId.isNullOrEmpty())
+    if (hasRole) return
+    syncManager.fetchCloudRole(userId)?.let { (role, linkedId) ->
+        val base = prefs ?: com.ona.miciclo.data.local.entity.UserPreferencesEntity(userId = userId)
+        userPreferencesDao.insertOrUpdate(
+            base.copy(userRole = role, linkedUserId = linkedId, onboardingCompletado = true)
+        )
+    }
+}
+
 @Composable
 fun OnaNavigation(
     userPreferencesDao: com.ona.miciclo.data.local.dao.UserPreferencesDao,
-    authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository
+    authRepository: com.ona.miciclo.auth.domain.repository.AuthRepository,
+    syncManager: com.ona.miciclo.core.sync.SupabaseSyncManager
 ) {
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
@@ -208,9 +236,11 @@ fun OnaNavigation(
                     onNavigateToRegister = { navController.navigate(Register) },
                     onNavigateToForgotPassword = { navController.navigate(ForgotPassword) },
                     onLoginSuccess = {
-                        // No repetir onboarding en usuarios ya configurados.
+                        // Restaurar rol/vínculo ANTES del gate (cambio de móvil),
+                        // luego decidir destino. Sin esto hay carrera y va a Onboarding.
                         scope.launch {
                             val uid = authRepository.currentUser.value?.uid ?: ""
+                            restoreRoleFromCloudIfMissing(uid, userPreferencesDao, syncManager)
                             val completed = userPreferencesDao.getByUserId(uid)?.onboardingCompletado == true
                             if (completed) {
                                 navController.navigate(Dashboard) {

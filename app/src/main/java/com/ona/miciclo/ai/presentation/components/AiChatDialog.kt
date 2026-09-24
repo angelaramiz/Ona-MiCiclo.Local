@@ -30,6 +30,7 @@ fun AiChatDialog(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var textInput by remember { mutableStateOf("") }
+    var showDisclaimer by remember { mutableStateOf(true) }
     val listState = rememberLazyListState()
 
     // Scroll al último mensaje automáticamente al recibir respuestas
@@ -55,11 +56,11 @@ fun AiChatDialog(
             color = MaterialTheme.colorScheme.background
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
-                // Header del Chat
+                // Header del Chat (compacto para dar espacio a los mensajes)
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -84,19 +85,38 @@ fun AiChatDialog(
 
                 Divider()
 
-                // Disclaimer médico
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
-                    shape = RoundedCornerShape(0.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(
-                        text = "Aviso: Ona AI es una herramienta de orientación educativa y autoconocimiento. No sustituye la consulta médica profesional.",
-                        style = MaterialTheme.typography.labelSmall,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
+                // Disclaimer médico (descartable para liberar espacio de mensajes)
+                if (showDisclaimer) {
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(0.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 16.dp, end = 4.dp, top = 6.dp, bottom = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Aviso: Ona AI es una herramienta de orientación educativa y autoconocimiento. No sustituye la consulta médica profesional.",
+                                style = MaterialTheme.typography.labelSmall,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.weight(1f),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            IconButton(
+                                onClick = { showDisclaimer = false },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Ocultar aviso",
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
                 }
 
                 // Lista de Mensajes
@@ -217,7 +237,7 @@ fun ChatBubble(message: ChatMessage) {
     val textColor = if (message.isUser) {
         MaterialTheme.colorScheme.onPrimary
     } else {
-        MaterialTheme.colorScheme.onSurfaceVariant
+        MaterialTheme.colorScheme.onSurface
     }
 
     Column(
@@ -226,6 +246,7 @@ fun ChatBubble(message: ChatMessage) {
     ) {
         Box(
             modifier = Modifier
+                .fillMaxWidth(0.85f)
                 .clip(bubbleShape)
                 .background(bubbleColor)
                 .padding(horizontal = 16.dp, vertical = 10.dp)

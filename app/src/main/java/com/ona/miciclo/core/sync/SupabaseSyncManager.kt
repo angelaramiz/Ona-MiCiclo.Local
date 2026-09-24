@@ -380,6 +380,23 @@ class SupabaseSyncManager(
     }
 
 /**
+ * Lee el rol y vínculo de la nube (tabla `users`) para restaurarlos en un
+ * dispositivo nuevo. El rol/vínculo solo se guardaba localmente, así que al
+ * cambiar de móvil la app trataba a un partner como hostess.
+ * Retorna (role, linkedUserId) o null si no hay fila / no hay red.
+ */
+suspend fun fetchCloudRole(userId: String): Pair<String, String?>? = withContext(Dispatchers.IO) {
+    try {
+        val response = performRequest("GET", "users", queryParams = "id=eq.$userId")
+        val rows = gson.fromJson(response, Array<UserRow>::class.java)
+        val row = rows.firstOrNull() ?: return@withContext null
+        row.role to row.linked_user_id
+    } catch (e: Exception) {
+        null
+    }
+}
+
+/**
  * Refresco inmediato del partner: descarga los datos de la hostess ahora.
  * Lanza excepción si hay datos en la nube pero ninguno se puede descifrar
  * (passphrase obsoleta) para que la UI lo muestre.
