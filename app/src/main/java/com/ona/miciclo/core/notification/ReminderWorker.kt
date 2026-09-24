@@ -51,6 +51,14 @@ class ReminderWorker(
                 due.forEach { helper.showReminder(it.key.hashCode(), it.title, it.text) }
                 reminderPrefs.markNotified(due.map { it.key })
             }
+            // Widget (A3): snapshot diario aunque no haya avisos.
+            try {
+                com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
+                    applicationContext, prediction, isPartner = false
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
             Result.success()
         } catch (e: Exception) {
             e.printStackTrace()

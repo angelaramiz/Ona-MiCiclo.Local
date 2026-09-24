@@ -174,6 +174,14 @@ class CalendarViewModel @Inject constructor(
             try {
                 val prediction = calculateCyclePredictionUseCase(userId)
                 _uiState.update { it.copy(prediction = prediction) }
+                // Widget (A3): persistir snapshot para la pantalla principal.
+                try {
+                    com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
+                        context, prediction, _uiState.value.isReadOnly
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             } catch (e: Exception) {
                 _uiState.update { it.copy(predictionError = e.message) }
             } finally {
