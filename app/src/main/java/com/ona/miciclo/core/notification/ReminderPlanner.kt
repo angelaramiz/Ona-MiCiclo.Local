@@ -34,7 +34,12 @@ object ReminderPlanner {
         /** Fecha del último DailyLog (null si nunca registró). */
         val lastLogDate: LocalDate?,
         /** Claves ya notificadas (para no repetir el mismo aviso). */
-        val alreadyNotified: Set<String> = emptySet()
+        val alreadyNotified: Set<String> = emptySet(),
+        /**
+         * Modo pareja (B1): los textos hablan de "tu pareja", no hay aviso de
+         * registro (el partner es solo lectura) y las claves llevan prefijo "P_".
+         */
+        val partnerMode: Boolean = false
     )
 
     fun due(i: Inputs): List<Reminder> {
@@ -45,38 +50,70 @@ object ReminderPlanner {
             val daysToPeriod = ChronoUnit.DAYS.between(i.today, p.proximaMenstruacion).toInt()
             if (i.periodEnabled && daysToPeriod in 1..2) {
                 val whenText = if (daysToPeriod == 1) "mañana" else "en 2 días"
-                out += Reminder(
-                    type = TYPE_PERIOD,
-                    key = "${TYPE_PERIOD}_${p.proximaMenstruacion}",
-                    title = "Tu periodo se acerca 🩸",
-                    text = "Tu periodo llega $whenText (${p.proximaMenstruacion.dayOfMonth} de " +
-                        "${monthName(p.proximaMenstruacion)}). Prepárate 💕"
-                )
+                out += if (i.partnerMode) {
+                    Reminder(
+                        type = TYPE_PERIOD,
+                        key = "P_${TYPE_PERIOD}_${p.proximaMenstruacion}",
+                        title = "Periodo de tu pareja 🩸",
+                        text = "El periodo de tu pareja llega $whenText " +
+                            "(${p.proximaMenstruacion.dayOfMonth} de " +
+                            "${monthName(p.proximaMenstruacion)}). Apóyala 💕"
+                    )
+                } else {
+                    Reminder(
+                        type = TYPE_PERIOD,
+                        key = "${TYPE_PERIOD}_${p.proximaMenstruacion}",
+                        title = "Tu periodo se acerca 🩸",
+                        text = "Tu periodo llega $whenText (${p.proximaMenstruacion.dayOfMonth} de " +
+                            "${monthName(p.proximaMenstruacion)}). Prepárate 💕"
+                    )
+                }
             }
             if (i.fertileEnabled) {
                 val daysToFertile = ChronoUnit.DAYS.between(i.today, p.inicioVentanaFertil).toInt()
                 if (daysToFertile == 1) {
-                    out += Reminder(
-                        type = TYPE_FERTILE_START,
-                        key = "${TYPE_FERTILE_START}_${p.inicioVentanaFertil}",
-                        title = "Ventana fértil mañana 🌸",
-                        text = "Tu ventana fértil empieza mañana. ¡Tómala en cuenta!"
-                    )
+                    out += if (i.partnerMode) {
+                        Reminder(
+                            type = TYPE_FERTILE_START,
+                            key = "P_${TYPE_FERTILE_START}_${p.inicioVentanaFertil}",
+                            title = "Ventana fértil de tu pareja 🌸",
+                            text = "La ventana fértil de tu pareja empieza mañana. ¡Tómalo en cuenta!"
+                        )
+                    } else {
+                        Reminder(
+                            type = TYPE_FERTILE_START,
+                            key = "${TYPE_FERTILE_START}_${p.inicioVentanaFertil}",
+                            title = "Ventana fértil mañana 🌸",
+                            text = "Tu ventana fértil empieza mañana. ¡Tómala en cuenta!"
+                        )
+                    }
                 }
                 val daysToFertileEnd = ChronoUnit.DAYS.between(i.today, p.finVentanaFertil).toInt()
                 if (daysToFertileEnd == 1) {
-                    out += Reminder(
-                        type = TYPE_FERTILE_END,
-                        key = "${TYPE_FERTILE_END}_${p.finVentanaFertil}",
-                        title = "Ventana fértil termina mañana 🌙",
-                        text = "Tu ventana fértil termina mañana (${p.finVentanaFertil.dayOfMonth} de " +
-                            "${monthName(p.finVentanaFertil)})."
-                    )
+                    out += if (i.partnerMode) {
+                        Reminder(
+                            type = TYPE_FERTILE_END,
+                            key = "P_${TYPE_FERTILE_END}_${p.finVentanaFertil}",
+                            title = "Ventana fértil de tu pareja 🌙",
+                            text = "La ventana fértil de tu pareja termina mañana " +
+                                "(${p.finVentanaFertil.dayOfMonth} de " +
+                                "${monthName(p.finVentanaFertil)})."
+                        )
+                    } else {
+                        Reminder(
+                            type = TYPE_FERTILE_END,
+                            key = "${TYPE_FERTILE_END}_${p.finVentanaFertil}",
+                            title = "Ventana fértil termina mañana 🌙",
+                            text = "Tu ventana fértil termina mañana (${p.finVentanaFertil.dayOfMonth} de " +
+                                "${monthName(p.finVentanaFertil)})."
+                        )
+                    }
                 }
             }
         }
 
-        if (i.logEnabled) {
+        // En modo pareja no hay aviso de registro (solo lectura).
+        if (i.logEnabled && !i.partnerMode) {
             val stale = i.lastLogDate == null || i.lastLogDate.isBefore(i.today.minusDays(1))
             if (stale) {
                 out += Reminder(

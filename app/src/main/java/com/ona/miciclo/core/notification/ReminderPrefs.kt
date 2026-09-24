@@ -24,6 +24,20 @@ class ReminderPrefs(context: Context) {
         get() = prefs.getBoolean(KEY_LOG, true)
         set(v) = prefs.edit().putBoolean(KEY_LOG, v).apply()
 
+    /**
+     * Avisos al partner (B1): interruptor DEL partner en SU teléfono
+     * (apagado por defecto). Sin columna en la nube, el permiso de la
+     * hostess vive en [coupleAlertsAllowed] como registro de consentimiento.
+     */
+    var partnerAlertsEnabled: Boolean
+        get() = prefs.getBoolean(KEY_PARTNER_ALERTS, false)
+        set(v) = prefs.edit().putBoolean(KEY_PARTNER_ALERTS, v).apply()
+
+    /** Consentimiento de la hostess para que su pareja reciba avisos (opt-in). */
+    var coupleAlertsAllowed: Boolean
+        get() = prefs.getBoolean(KEY_COUPLE_ALLOWED, false)
+        set(v) = prefs.edit().putBoolean(KEY_COUPLE_ALLOWED, v).apply()
+
     fun notifiedKeys(): Set<String> =
         prefs.getStringSet(KEY_NOTIFIED, emptySet()) ?: emptySet()
 
@@ -39,6 +53,8 @@ class ReminderPrefs(context: Context) {
         const val KEY_PERIOD = "rem_period"
         const val KEY_FERTILE = "rem_fertile"
         const val KEY_LOG = "rem_log"
+        const val KEY_PARTNER_ALERTS = "rem_partner_alerts"
+        const val KEY_COUPLE_ALLOWED = "rem_couple_allowed"
         const val KEY_NOTIFIED = "rem_notified"
     }
 }

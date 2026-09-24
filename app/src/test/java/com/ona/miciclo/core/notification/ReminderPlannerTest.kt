@@ -122,4 +122,40 @@ class ReminderPlannerTest {
         assertEquals(1, r.size)
         assertEquals(ReminderPlanner.TYPE_LOG, r[0].type)
     }
+
+    // ── B1: modo pareja ──
+
+    private fun partnerInputs(
+        prediction: CyclePrediction? = prediction(),
+        lastLog: LocalDate? = today
+    ) = ReminderPlanner.Inputs(
+        prediction = prediction,
+        today = today,
+        periodEnabled = true,
+        fertileEnabled = true,
+        logEnabled = true,
+        lastLogDate = lastLog,
+        partnerMode = true
+    )
+
+    @Test
+    fun `modo pareja habla de tu pareja y sin registro`() {
+        val r = ReminderPlanner.due(partnerInputs())
+        assertTrue(r.any { it.type == ReminderPlanner.TYPE_FERTILE_END })
+        val fertile = r.first { it.type == ReminderPlanner.TYPE_FERTILE_END }
+        assertTrue(fertile.title.contains("tu pareja"))
+        assertTrue(fertile.text.contains("tu pareja"))
+        assertTrue(r.none { it.type == ReminderPlanner.TYPE_LOG })
+        assertTrue(fertile.key.startsWith("P_"))
+    }
+
+    @Test
+    fun `modo pareja avisa periodo proximo`() {
+        val r = ReminderPlanner.due(
+            partnerInputs(prediction = prediction(nextPeriod = today.plusDays(1)))
+        )
+        val period = r.first { it.type == ReminderPlanner.TYPE_PERIOD }
+        assertTrue(period.text.contains("tu pareja"))
+        assertTrue(period.key.startsWith("P_"))
+    }
 }

@@ -235,6 +235,70 @@ fun SettingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.primary
                         )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Avisos al partner (B1): opt-in explícito en SU teléfono.
+                        val partnerReminderPrefs = remember {
+                            com.ona.miciclo.core.notification.ReminderPrefs(context)
+                        }
+                        var partnerAlerts by remember {
+                            mutableStateOf(partnerReminderPrefs.partnerAlertsEnabled)
+                        }
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    "Recibir avisos del ciclo",
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                                Text(
+                                    "Periodo y ventana fértil de tu pareja en este teléfono.",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = partnerAlerts,
+                                onCheckedChange = {
+                                    partnerAlerts = it
+                                    partnerReminderPrefs.partnerAlertsEnabled = it
+                                }
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(12.dp))
+                        // Re-vinculación: si la hostess rotó el acceso (código fresco),
+                        // la pareja se vincula de nuevo sin perder su sesión.
+                        var showRelink by rememberSaveable { mutableStateOf(false) }
+                        if (!showRelink) {
+                            OnaOutlinedButton(
+                                text = "🔄 Vincular con otro código",
+                                onClick = { showRelink = true }
+                            )
+                        } else {
+                            Text(
+                                "Ingresa el código fresco de tu pareja:",
+                                style = MaterialTheme.typography.titleSmall
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OutlinedTextField(
+                                value = partnerCodeInput,
+                                onValueChange = { partnerCodeInput = it.take(6).uppercase() },
+                                label = { Text("Código de 6 letras") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            OnaButton(
+                                text = if (uiState.isLinking) "Vinculando..." else "Vincular como Pareja",
+                                onClick = {
+                                    viewModel.linkPartner(partnerCodeInput)
+                                    partnerCodeInput = ""
+                                    showRelink = false
+                                },
+                                enabled = partnerCodeInput.length == 6 && !uiState.isLinking
+                            )
+                        }
                     } else {
                         // Rol Hostess (por defecto)
                         if (!userPrefs?.linkedUserId.isNullOrEmpty()) {
@@ -243,6 +307,78 @@ fun SettingsScreen(
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary
                             )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            // Consentimiento de avisos (B1): opt-in explícito de la hostess.
+                            // Nota técnica: sin columna en la nube, este permiso vive en
+                            // este teléfono; tu pareja además debe activar los avisos en el suyo.
+                            val couplePrefs = remember {
+                                com.ona.miciclo.core.notification.ReminderPrefs(context)
+                            }
+                            var coupleAllowed by remember {
+                                mutableStateOf(couplePrefs.coupleAlertsAllowed)
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(
+                                        "Permito avisos a mi pareja",
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                    Text(
+                                        "Tu pareja podrá activar avisos de tu periodo y ventana fértil en su teléfono.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = coupleAllowed,
+                                    onCheckedChange = {
+                                        coupleAllowed = it
+                                        couplePrefs.coupleAlertsAllowed = it
+                                    }
+                                )
+                            }
+                            Spacer(modifier = Modifier.height(12.dp))
+                            // Rotación de acceso: si la pareja cambió de móvil o la clave
+                            // ya no descifra, genera un código fresco para re-vincular.
+                            // El código nuevo se muestra debajo (igual que al generarlo).
+                            OnaOutlinedButton(
+                                text = if (uiState.isGeneratingCode) "Generando..." else "🔄 Generar nuevo código",
+                                onClick = { viewModel.generateInvitationCode() },
+                                enabled = !uiState.isGeneratingCode
+                            )
+                            // El código recién generado se muestra aquí también
+                            // (el bloque original solo existe en la rama sin vínculo).
+                            if (uiState.invitationCode != null) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = MaterialTheme.colorScheme.primaryContainer
+                                    )
+                                ) {
+                                    Column(modifier = Modifier.padding(8.dp)) {
+                                        Text(
+                                            text = "Código de Invitación: ${uiState.invitationCode}",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                        Text(
+                                            text = "Comparte este código con tu pareja para vincular las cuentas.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                                OnaOutlinedButton(
+                                    text = "Entendido",
+                                    onClick = { viewModel.clearInvitationCode() }
+                                )
+                            }
                         } else {
                             Text(
                                 text = "Permite que tu pareja vea tu calendario en modo lectura.",

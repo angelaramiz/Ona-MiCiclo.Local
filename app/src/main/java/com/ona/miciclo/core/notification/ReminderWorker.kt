@@ -9,11 +9,11 @@ import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import java.time.LocalDate
 
 /**
- * Worker diario de recordatorios (A2, WorkManager).
+ * Worker diario de recordatorios (A2) + avisos al partner (B1, WorkManager).
  *
- * Solo para hostess/solo (el partner es solo lectura; sus avisos llegan en B1):
- * calcula la predicción, pregunta al [ReminderPlanner] qué vence hoy, muestra
- * las notificaciones y marca las claves para no repetirlas.
+ * - Hostess/solo: recordatorios propios (periodo, fértil, registro).
+ * - Partner: avisos sobre el ciclo de la hostess vinculada, SOLO si activó
+ *   "Recibir avisos" en su teléfono (opt-in local, apagado por defecto).
  */
 class ReminderWorker(
     appContext: Context,
@@ -27,13 +27,16 @@ class ReminderWorker(
         val userId = inputData.getString(KEY_USER_ID) ?: return Result.success()
         return try {
             val prefs = userPreferencesDao.getByUserId(userId)
-            // Solo hostess: el partner no tiene predicción propia ni registros.
-            if (prefs?.userRole == "partner") return Result.success()
+            val reminderPrefs = ReminderPrefs(applicationContext)
+
+            if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
+                runPartnerAlerts(prefs.linkedUserId!!, reminderPrefs)
+                return Result.success()
+            }
 
             val prediction = predictionUseCase(userId)
             val lastLog = cycleRepository.getAllDailyLogsSync(userId)
                 .maxOfOrNull { it.fecha }
-            val reminderPrefs = ReminderPrefs(applicationContext)
 
             val due = ReminderPlanner.due(
                 ReminderPlanner.Inputs(
@@ -46,11 +49,7 @@ class ReminderWorker(
                     alreadyNotified = reminderPrefs.notifiedKeys()
                 )
             )
-            if (due.isNotEmpty()) {
-                val helper = NotificationHelper(applicationContext)
-                due.forEach { helper.showReminder(it.key.hashCode(), it.title, it.text) }
-                reminderPrefs.markNotified(due.map { it.key })
-            }
+            showAll(due, reminderPrefs)
             // Widget (A3): snapshot diario aunque no haya avisos.
             try {
                 com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
@@ -64,6 +63,39 @@ class ReminderWorker(
             e.printStackTrace()
             Result.retry()
         }
+    }
+
+    /**
+     * Avisos al partner sobre el ciclo de su hostess (B1).
+     * Requiere opt-in explícito en SU teléfono; sin él, silencio total.
+     */
+    private suspend fun runPartnerAlerts(hostessId: String, reminderPrefs: ReminderPrefs) {
+        if (!reminderPrefs.partnerAlertsEnabled) return
+        val prediction = try {
+            predictionUseCase(hostessId)
+        } catch (e: Exception) {
+            null
+        }
+        val due = ReminderPlanner.due(
+            ReminderPlanner.Inputs(
+                prediction = prediction,
+                today = LocalDate.now(),
+                periodEnabled = reminderPrefs.periodEnabled,
+                fertileEnabled = reminderPrefs.fertileEnabled,
+                logEnabled = false,
+                lastLogDate = null,
+                alreadyNotified = reminderPrefs.notifiedKeys(),
+                partnerMode = true
+            )
+        )
+        showAll(due, reminderPrefs)
+    }
+
+    private fun showAll(due: List<ReminderPlanner.Reminder>, reminderPrefs: ReminderPrefs) {
+        if (due.isEmpty()) return
+        val helper = NotificationHelper(applicationContext)
+        due.forEach { helper.showReminder(it.key.hashCode(), it.title, it.text) }
+        reminderPrefs.markNotified(due.map { it.key })
     }
 
     companion object {
