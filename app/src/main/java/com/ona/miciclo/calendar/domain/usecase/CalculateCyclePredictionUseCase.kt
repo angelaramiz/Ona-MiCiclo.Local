@@ -114,7 +114,7 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         // ── Paso 6: Generar mensaje contextual ──
         val message = generateMessage(currentPhase, confidence, dayOfCycle, cycleLength)
 
-        return CyclePrediction(
+        val calendarPrediction = CyclePrediction(
             proximaMenstruacion = nextPeriodStart,
             duracionPromedio = cycleLength,
             inicioVentanaFertil = fertileStart,
@@ -125,6 +125,45 @@ class CalculateCyclePredictionUseCase @Inject constructor(
             confianza = confidence,
             mensaje = message
         )
+
+        // ── Paso 7 (A1): Ajuste sintotérmico con los registros del ciclo actual ──
+        // Si la usuaria registró evidencia de ovulación (síntoma, tira LH, cambio
+        // térmico), las fechas fértiles se recalculan desde la ovulación detectada.
+        // Sin evidencia, se devuelve la predicción de calendario tal cual.
+        return try {
+            val cycleLogs = cycleRepository.getAllDailyLogsSync(userId)
+                .filter { it.fecha >= latestRecord.fechaInicioMenstruacion }
+            val adjusted = com.ona.miciclo.calendar.domain.model.SymptothermalAdjustment.adjust(
+                calendarOvulation = estimatedOvulation,
+                cycleStart = latestRecord.fechaInicioMenstruacion,
+                cycleLength = cycleLength,
+                logs = cycleLogs
+            )
+            if (adjusted.evidence.isEmpty()) {
+                calendarPrediction
+            } else {
+                // La fase puede cambiar si la ventana fértil se movió: recalcular
+                val newPhase = determinePhase(
+                    dayOfCycle = dayOfCycle,
+                    bleedingDuration = latestRecord.duracionSangrado,
+                    cycleLength = cycleLength,
+                    today = today,
+                    fertileStart = adjusted.fertileStart,
+                    fertileEnd = adjusted.fertileEnd
+                )
+                calendarPrediction.copy(
+                    inicioVentanaFertil = adjusted.fertileStart,
+                    finVentanaFertil = adjusted.fertileEnd,
+                    diaOvulacion = adjusted.ovulationDate,
+                    faseActual = newPhase,
+                    mensaje = generateMessage(newPhase, confidence, dayOfCycle, cycleLength) +
+                        "\n🔬 " + adjusted.evidence.joinToString(" · ")
+                )
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            calendarPrediction // Ante cualquier error, no romper la predicción base
+        }
     }
 
     /**
