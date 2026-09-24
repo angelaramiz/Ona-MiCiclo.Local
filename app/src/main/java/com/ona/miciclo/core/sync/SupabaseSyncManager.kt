@@ -446,21 +446,36 @@ suspend fun runSyncOnce(userId: String) {
     }
 
     /**
-     * Envía una sugerencia de inicio de periodo a la anfitriona.
+     * Envía una sugerencia del partner a la anfitriona.
+     * Tipos: START_PERIOD (inicio de periodo), OVULATION_DAY (día de ovulación).
      */
     suspend fun sendPartnerSuggestion(
         hostessId: String,
         partnerId: String,
-        suggestedDate: LocalDate
+        suggestedDate: LocalDate,
+        suggestionType: String = "START_PERIOD"
     ): String = withContext(Dispatchers.IO) {
         val row = PartnerSuggestionRow(
             hostess_id = hostessId,
             partner_id = partnerId,
-            suggestion_type = "START_PERIOD",
+            suggestion_type = suggestionType,
             suggested_date = suggestedDate.toString(),
             status = "PENDING"
         )
         performRequest("POST", "partner_suggestions", gson.toJson(row))
+    }
+
+    /**
+     * Última sugerencia enviada por el partner (para mostrarle su estado:
+     * pendiente, aprobada o rechazada).
+     */
+    suspend fun getLatestPartnerSuggestion(partnerId: String): PartnerSuggestionRow? = withContext(Dispatchers.IO) {
+        val response = performRequest(
+            method = "GET",
+            table = "partner_suggestions",
+            queryParams = "partner_id=eq.$partnerId&order=created_at.desc&limit=1"
+        )
+        gson.fromJson(response, Array<PartnerSuggestionRow>::class.java).firstOrNull()
     }
 
     /**

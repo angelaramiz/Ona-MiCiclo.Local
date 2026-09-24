@@ -221,11 +221,26 @@ fun CalendarScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                     }
                 } else {
-                    // Para el partner, siempre mostrar botón de sugerir
+                    // Para el partner: sugerir inicio de periodo o día de ovulación
                     OnaOutlinedButton(
                         text = "Sugerir inicio de periodo",
                         onClick = { viewModel.suggestPeriodStart(selectedDate) }
                     )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OnaOutlinedButton(
+                        text = "Sugerir día de ovulación",
+                        onClick = { viewModel.suggestOvulationDay(selectedDate) }
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    uiState.mySuggestionStatus?.let { status ->
+                        Text(
+                            text = status,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
             }
@@ -306,7 +321,7 @@ fun CalendarScreen(
         AlertDialog(
             onDismissRequest = { /* No dismiss sin decidir */ },
             title = { Text("Sugerencia de tu pareja") },
-            text = { Text("Tu pareja sugiere marcar el inicio de tu periodo el día ${suggestion.suggested_date}. ¿Deseas aplicar este ajuste en tu calendario?") },
+            text = { Text(com.ona.miciclo.calendar.domain.model.PartnerSuggestions.dialogText(suggestion.suggestion_type, suggestion.suggested_date)) },
             confirmButton = {
                 Button(
                     onClick = { viewModel.approveSuggestion(suggestion) }

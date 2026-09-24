@@ -36,7 +36,7 @@ class NotificationHelper(private val context: Context) {
         }
     }
 
-    fun showPartnerSuggestionNotification(suggestedDate: String) {
+    fun showPartnerSuggestionNotification(suggestedDate: String, suggestionType: String = "START_PERIOD") {
         val intent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
         }
@@ -51,7 +51,7 @@ class NotificationHelper(private val context: Context) {
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_launcher)
             .setContentTitle("Sugerencia de tu pareja")
-            .setContentText("Tu pareja sugiere marcar el inicio del periodo el $suggestedDate")
+            .setContentText(com.ona.miciclo.calendar.domain.model.PartnerSuggestions.notificationText(suggestionType, suggestedDate))
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)

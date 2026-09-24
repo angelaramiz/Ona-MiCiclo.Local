@@ -7,6 +7,7 @@ import com.ona.miciclo.calendar.domain.model.CyclePrediction
 import com.ona.miciclo.calendar.domain.model.CycleRecord
 import com.ona.miciclo.calendar.domain.model.DailyLog
 import com.ona.miciclo.calendar.domain.model.FlowLevel
+import com.ona.miciclo.calendar.domain.model.PartnerSuggestions
 import com.ona.miciclo.calendar.domain.usecase.CalculateCyclePredictionUseCase
 import com.ona.miciclo.calendar.domain.usecase.GetMonthDataUseCase
 import com.ona.miciclo.calendar.domain.usecase.SaveDailyLogUseCase
@@ -113,6 +114,7 @@ class CalendarViewModel @Inject constructor(
                 loadCurrentMonth()
                 loadPrediction()
                 loadPendingSuggestions()
+                loadMySuggestionStatus()
                 _uiState.update {
                     if (showFeedback) it.copy(
                         isRefreshing = false,
@@ -267,14 +269,48 @@ class CalendarViewModel @Inject constructor(
         }
     }
 
-    fun suggestPeriodStart(date: LocalDate) {
+    fun suggestPeriodStart(date: LocalDate) =
+        sendSuggestion(date, PartnerSuggestions.START_PERIOD)
+
+    fun suggestOvulationDay(date: LocalDate) =
+        sendSuggestion(date, PartnerSuggestions.OVULATION_DAY)
+
+    private fun sendSuggestion(date: LocalDate, type: String) {
         viewModelScope.launch {
             try {
                 val myUid = authRepository.currentUser.value?.uid ?: ""
-                syncManager.sendPartnerSuggestion(userId, myUid, date)
-                _uiState.update { it.copy(message = "Sugerencia enviada a tu pareja ✓") }
+                syncManager.sendPartnerSuggestion(userId, myUid, date, type)
+                loadMySuggestionStatus()
+                _uiState.update { it.copy(message = PartnerSuggestions.sentMessage(type)) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al sugerir: ${e.localizedMessage}") }
+            }
+        }
+    }
+
+    /**
+     * Carga el estado de la última sugerencia enviada por el partner
+     * (para mostrarle si sigue pendiente, fue aprobada o rechazada).
+     */
+    fun loadMySuggestionStatus() {
+        val myUid = authRepository.currentUser.value?.uid ?: ""
+        viewModelScope.launch {
+            try {
+                val prefs = userPreferencesDao.getByUserId(myUid)
+                if (prefs?.userRole != "partner") {
+                    _uiState.update { it.copy(mySuggestionStatus = null) }
+                    return@launch
+                }
+                val latest = syncManager.getLatestPartnerSuggestion(myUid)
+                _uiState.update {
+                    it.copy(
+                        mySuggestionStatus = latest?.let { s ->
+                            PartnerSuggestions.statusLine(s.suggestion_type, s.suggested_date, s.status)
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
             }
         }
     }
@@ -291,7 +327,7 @@ class CalendarViewModel @Inject constructor(
                     // Verificar si es una sugerencia nueva para mostrar notificación
                     if (lastSuggestionId != newSuggestion.id) {
                         lastSuggestionId = newSuggestion.id
-                        notificationHelper.showPartnerSuggestionNotification(newSuggestion.suggested_date)
+                        notificationHelper.showPartnerSuggestionNotification(newSuggestion.suggested_date, newSuggestion.suggestion_type)
                     }
                     _uiState.update { it.copy(pendingSuggestion = newSuggestion) }
                 } else {
@@ -307,13 +343,41 @@ class CalendarViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 val suggestedDate = LocalDate.parse(suggestion.suggested_date)
-                startNewPeriod(suggestedDate)
+                when (suggestion.suggestion_type) {
+                    PartnerSuggestions.OVULATION_DAY -> confirmOvulationDay(suggestedDate)
+                    PartnerSuggestions.START_PERIOD -> startNewPeriod(suggestedDate)
+                    // Tipo futuro/desconocido: solo marcar, sin efectos (seguridad)
+                }
                 syncManager.updateSuggestionStatus(suggestion.id!!, "APPROVED")
-                _uiState.update { it.copy(pendingSuggestion = null, message = "Sugerencia aprobada y aplicada") }
+                _uiState.update { it.copy(pendingSuggestion = null, message = PartnerSuggestions.approveMessage(suggestion.suggestion_type)) }
             } catch (e: Exception) {
                 _uiState.update { it.copy(error = "Error al aprobar sugerencia: ${e.localizedMessage}") }
             }
         }
+    }
+
+    /**
+     * Registra un día de ovulación confirmado por la pareja: fusiona el síntoma
+     * "ovulacion" en el DailyLog de esa fecha (creándolo si no existe) y sincroniza.
+     * Es suspend (sin launch interno) para que approveSuggestion lo complete
+     * antes de marcar la sugerencia como APPROVED.
+     */
+    private suspend fun confirmOvulationDay(date: LocalDate) {
+        val existing = cycleRepository.getDailyLogByDate(userId, date)
+        val merged = PartnerSuggestions.withOvulationConfirmed(existing, userId, date)
+        saveDailyLogUseCase(merged)
+            .onSuccess {
+                loadPrediction()
+                val ym = _uiState.value.currentYearMonth
+                loadMonth(ym.year, ym.monthValue)
+                val myUid = authRepository.currentUser.value?.uid ?: ""
+                if (myUid.isNotEmpty()) {
+                    syncManager.syncHostessDataToCloud(myUid)
+                }
+            }
+            .onFailure { error ->
+                throw error
+            }
     }
 
     fun rejectSuggestion(suggestion: SupabaseSyncManager.PartnerSuggestionRow) {
@@ -384,6 +448,8 @@ data class CalendarUiState(
     val lastSyncTimeMillis: Long? = null,
     val isSelectedDatePeriodStart: Boolean = false,
     val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
+    /** Estado de la última sugerencia enviada por el partner (solo modo pareja). */
+    val mySuggestionStatus: String? = null,
     val message: String? = null,
     /**
      * true  → hay al menos un CycleRecord guardado → predicción disponible o en camino.
