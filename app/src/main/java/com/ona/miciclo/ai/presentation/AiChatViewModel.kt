@@ -93,8 +93,9 @@ class AiChatViewModel @Inject constructor(
                 // Registro conversacional (A5): si el mensaje trae datos
                 // ("registra dolor de cabeza"), se guarda SIN necesitar el modelo.
                 // Solo la hostess puede registrar (el partner es solo lectura).
+                // Las preguntas ("¿...?") van al modelo, no se registran.
                 val isPartner = prefs?.userRole == "partner"
-                if (!isPartner) {
+                if (!isPartner && !text.contains("?")) {
                     val parsed = ConversationalLogParser.parse(text)
                     if (parsed.matched) {
                         val today = LocalDate.now()
@@ -105,7 +106,11 @@ class AiChatViewModel @Inject constructor(
                         } else {
                             val existing = cycleRepository.getDailyLogByDate(resolvedUserId, today)
                             val merged = ConversationalLogParser.merge(existing, resolvedUserId, today, parsed)
-                            saveDailyLogUseCase(merged)
+                            val saved = saveDailyLogUseCase(merged)
+                            if (saved.isFailure) {
+                                throw saved.exceptionOrNull()
+                                    ?: IllegalStateException("No se pudo guardar el registro.")
+                            }
                         }
                         val summary = ConversationalLogParser.describe(parsed)
                         val confirmation = if (parsed.isPeriodStart) {

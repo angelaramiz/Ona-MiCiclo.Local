@@ -10,6 +10,8 @@
 
     <!-- Permiso de cámara para escaneo local OCR de tiras de ovulación -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- La cámara es opcional (solo OCR): no filtrar en Play por hardware -->
+    <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <!-- Permisos para notificaciones -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />

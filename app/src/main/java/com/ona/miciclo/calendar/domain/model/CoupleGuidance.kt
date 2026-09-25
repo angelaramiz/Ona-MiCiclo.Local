@@ -48,7 +48,11 @@ object CoupleGuidance {
 
         val daysToPeriod = ChronoUnit.DAYS.between(today, prediction.proximaMenstruacion).toInt()
         if (daysToPeriod in 0..3) {
-            val whenText = if (daysToPeriod == 0) "hoy" else "en $daysToPeriod días"
+            val whenText = when (daysToPeriod) {
+                0 -> "hoy"
+                1 -> "mañana"
+                else -> "en $daysToPeriod días"
+            }
             return Result(
                 level = Level.PERIOD,
                 title = "Periodo muy cerca 🩸",

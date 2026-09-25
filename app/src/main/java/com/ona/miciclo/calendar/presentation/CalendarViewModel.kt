@@ -368,11 +368,15 @@ class CalendarViewModel @Inject constructor(
     fun approveSuggestion(suggestion: SupabaseSyncManager.PartnerSuggestionRow) {
         viewModelScope.launch {
             try {
-                val suggestedDate = LocalDate.parse(suggestion.suggested_date)
                 when (suggestion.suggestion_type) {
-                    PartnerSuggestions.OVULATION_DAY -> confirmOvulationDay(suggestedDate)
-                    PartnerSuggestions.START_PERIOD -> startNewPeriod(suggestedDate)
-                    // Notas de apoyo y tipos futuros: solo marcar, sin efectos.
+                    PartnerSuggestions.OVULATION_DAY -> confirmOvulationDay(
+                        LocalDate.parse(suggestion.suggested_date)
+                    )
+                    PartnerSuggestions.START_PERIOD -> startNewPeriod(
+                        LocalDate.parse(suggestion.suggested_date)
+                    )
+                    // Notas de apoyo y tipos futuros: solo marcar, sin efectos
+                    // (ni siquiera parsear la fecha: las notas no la necesitan).
                     else -> { }
                 }
                 syncManager.updateSuggestionStatus(suggestion.id!!, "APPROVED")

@@ -58,6 +58,18 @@ class ConversationalLogParserTest {
     }
 
     @Test
+    fun `sin falsos positivos por subcadenas`() {
+        assertFalse(ConversationalLogParser.parse("descansan muy bien").matched)
+        assertFalse(ConversationalLogParser.parse("sospecho que lloverá").matched)
+    }
+
+    @Test
+    fun `cansancio real si matchea`() {
+        val p = ConversationalLogParser.parse("estoy muy cansada hoy")
+        assertTrue(p.symptoms.contains("fatiga"))
+    }
+
+    @Test
     fun `merge preserva y agrega`() {
         val existing = DailyLog(
             userId = "h",

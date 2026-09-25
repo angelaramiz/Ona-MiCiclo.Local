@@ -24,7 +24,11 @@ object CycleInsightProvider {
 
         val daysToPeriod = ChronoUnit.DAYS.between(today, prediction.proximaMenstruacion).toInt()
         if (daysToPeriod in 0..3) {
-            val whenText = if (daysToPeriod == 0) "hoy" else "en $daysToPeriod días"
+            val whenText = when (daysToPeriod) {
+                0 -> "hoy"
+                1 -> "mañana"
+                else -> "en $daysToPeriod días"
+            }
             out += "🩸 Tu periodo podría llegar $whenText. Ten a la mano lo necesario."
         }
 
@@ -36,7 +40,8 @@ object CycleInsightProvider {
         } else {
             val daysToFertile = ChronoUnit.DAYS.between(today, prediction.inicioVentanaFertil).toInt()
             if (daysToFertile in 1..2) {
-                out += "🌸 Tu ventana fértil empieza en $daysToFertile día(s)."
+                val whenText = if (daysToFertile == 1) "mañana" else "en $daysToFertile días"
+                out += "🌸 Tu ventana fértil empieza $whenText."
             }
         }
 

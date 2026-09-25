@@ -298,6 +298,16 @@ fun SettingsScreen(
                                 },
                                 label = { Text("Solo disfrutar 💞") }
                             )
+                            if (coupleGoal.isNotEmpty()) {
+                                TextButton(
+                                    onClick = {
+                                        coupleGoal = ""
+                                        partnerReminderPrefs.coupleGoal = ""
+                                    }
+                                ) {
+                                    Text("Quitar")
+                                }
+                            }
                         }
                         Spacer(modifier = Modifier.height(12.dp))
                         // Re-vinculación: si la hostess rotó el acceso (código fresco),
@@ -385,6 +395,11 @@ fun SettingsScreen(
                                 horizontalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)
                             ) {
                                 val currentGoal = userPrefs?.objetivoUsuario ?: "conocimiento"
+                                FilterChip(
+                                    selected = currentGoal == "conocimiento",
+                                    onClick = { viewModel.updateObjective("conocimiento") },
+                                    label = { Text("Conocer 🔍") }
+                                )
                                 FilterChip(
                                     selected = currentGoal == "fertilidad",
                                     onClick = { viewModel.updateObjective("fertilidad") },

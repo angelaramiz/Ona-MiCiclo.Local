@@ -99,12 +99,9 @@ object MedicalReportPdf {
         }
 
         y += 12f
-        newPageIfNeeded(2)
-        line(
-            "Nota: este informe no es un diagnóstico médico. Generado en el " +
-                "dispositivo, sin notas personales.",
-            smallPaint
-        )
+        newPageIfNeeded(3)
+        line("Nota: este informe no es un diagnóstico médico.", smallPaint)
+        line("Generado en el dispositivo, sin notas personales.", smallPaint)
 
         doc.finishPage(page)
         file.outputStream().use { doc.writeTo(it) }

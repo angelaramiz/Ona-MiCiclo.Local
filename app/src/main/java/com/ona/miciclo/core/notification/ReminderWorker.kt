@@ -89,6 +89,14 @@ class ReminderWorker(
             )
         )
         showAll(due, reminderPrefs)
+        // Widget (A3): también en modo pareja, con etiqueta de pareja.
+        try {
+            com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
+                applicationContext, prediction, isPartner = true
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     private fun showAll(due: List<ReminderPlanner.Reminder>, reminderPrefs: ReminderPrefs) {

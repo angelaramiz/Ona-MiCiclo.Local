@@ -28,11 +28,11 @@ object ConversationalLogParser {
     private val symptomKeywords: List<Pair<Regex, String>> = listOf(
         Regex("dolor de cabeza|duele la cabeza|cabeza") to "dolor_cabeza",
         Regex("c[oó]lic|calambre") to "calambres",
-        Regex("cansan|fatiga|agotad") to "fatiga",
+        Regex("cansanci|cansad|fatiga|agotad") to "fatiga",
         Regex("n[aá]usea|ganas de vomitar") to "nauseas",
         Regex("hincha") to "hinchazón",
         Regex("humor|irritable|triste|ansios") to "cambios_humor",
-        Regex("pecho|sensible") to "sensibilidad_pechos",
+        Regex("\\bpecho|\\bsensible") to "sensibilidad_pechos",
         Regex("acn|grano|espinilla") to "acne",
         Regex("antojo") to "antojos",
         Regex("insomnio|no dorm|desvel") to "insomnio",

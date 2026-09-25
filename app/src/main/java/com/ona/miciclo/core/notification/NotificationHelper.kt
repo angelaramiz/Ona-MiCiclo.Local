@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.ona.miciclo.MainActivity
@@ -30,30 +29,24 @@ class NotificationHelper(private val context: Context) {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val importance = NotificationManager.IMPORTANCE_DEFAULT
-            val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, importance).apply {
-                description = CHANNEL_DESCRIPTION
-            }
-            
-            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(CHANNEL_ID, CHANNEL_NAME, NotificationManager.IMPORTANCE_DEFAULT).apply {
+            description = CHANNEL_DESCRIPTION
         }
+        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     private fun createReminderChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                REMINDER_CHANNEL_ID,
-                REMINDER_CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_DEFAULT
-            ).apply {
-                description = REMINDER_CHANNEL_DESCRIPTION
-            }
-            val notificationManager =
-                context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
+        val channel = NotificationChannel(
+            REMINDER_CHANNEL_ID,
+            REMINDER_CHANNEL_NAME,
+            NotificationManager.IMPORTANCE_DEFAULT
+        ).apply {
+            description = REMINDER_CHANNEL_DESCRIPTION
         }
+        val notificationManager =
+            context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        notificationManager.createNotificationChannel(channel)
     }
 
     /**
@@ -110,7 +103,12 @@ class NotificationHelper(private val context: Context) {
             .setAutoCancel(true)
 
         with(NotificationManagerCompat.from(context)) {
-            notify(NOTIFICATION_ID, builder.build())
+            try {
+                notify(NOTIFICATION_ID, builder.build())
+            } catch (e: SecurityException) {
+                // Sin permiso POST_NOTIFICATIONS: no romper al llamador.
+                e.printStackTrace()
+            }
         }
     }
 }
