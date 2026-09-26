@@ -7,9 +7,8 @@ import androidx.work.WorkerParameters
 /**
  * Worker de sincronización en segundo plano (WorkManager).
  *
- * Mantiene la comunicación hostess<->partner aunque la app esté cerrada:
- * - Partner: descarga los datos de la hostess (vista solo lectura).
- * - Hostess/solo: sube todos sus datos locales a la nube.
+ * Mantiene la comunicación hostess<->partner aunque la app esté cerrada
+ * (sync bidireccional: subida + descarga/merge según rol, ver `syncNow`).
  *
  * El rol y el id de usuario vinculado se leen de la DB en cada ejecución, así que
  * no hay que reprogramar el worker cuando cambia el rol.

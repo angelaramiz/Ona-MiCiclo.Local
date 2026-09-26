@@ -65,6 +65,31 @@ class SupabaseSyncManager(
          * id (remap a 0), así que es seguro cambiar el formato.
          */
         fun cloudRowId(userId: String, localId: String) = "${userId}_$localId"
+
+        /**
+         * IDs por CLAVE NATURAL (bidireccional): la misma fila lógica siempre
+         * produce la misma PK de nube, sin importar el id local del dispositivo
+         * que la suba. Sin esto, el partner re-subía su espejo con SUS ids
+         * locales → PKs distintas para el mismo periodo/log → duplicados que
+         * ningún download colapsaba. Con clave natural, re-subir = upsert
+         * idempotente (la nube usa merge-duplicates).
+         */
+        fun cloudCycleId(userId: String, start: java.time.LocalDate?) =
+            if (start == null) cloudRowId(userId, "null") else "${userId}_cycle_${start}"
+
+        fun cloudLogId(userId: String, fecha: java.time.LocalDate) =
+            "${userId}_log_${fecha}"
+
+        /**
+         * Solo se descargan filas con id natural. Las legacy (`uid_N`,
+         * `uid_fecha`) se ignoran: tras el primer upload con id natural su
+         * contenido ya vive en las filas nuevas (misma fila lógica).
+         */
+        fun isNaturalCloudId(id: String) =
+            id.contains("_cycle_") || id.contains("_log_")
+
+        fun selectRowsForDownload(rows: List<EncryptedPayloadRow>) =
+            rows.filter { isNaturalCloudId(it.id) }
     }
 
     // Modelos para la REST API de Supabase
@@ -232,12 +257,15 @@ class SupabaseSyncManager(
 
         val cycles = cycleRecordDao.getAllByUserSync(hostessId)
         for (cycle in cycles) {
+            // Los ciclos sin fecha no tienen clave natural: se omiten (el repo
+            // los purga como corruptos; sin esto reaparecerían como duplicados).
+            val start = cycle.fechaInicioMenstruacion ?: continue
             val plainJson = gson.toJson(cycle)
             val encryptedBytes = CryptoUtils.encryptJson(plainJson, encryptionKey)
             val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
 
             val row = EncryptedPayloadRow(
-                id = cloudRowId(hostessId, cycle.id.toString()),
+                id = cloudCycleId(hostessId, start),
                 user_id = hostessId,
                 encrypted_payload = base64Payload
             )
@@ -251,7 +279,7 @@ class SupabaseSyncManager(
             val base64Payload = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
 
             val row = EncryptedPayloadRow(
-                id = cloudRowId(hostessId, log.fecha.toString()),
+                id = cloudLogId(hostessId, log.fecha),
                 user_id = hostessId,
                 encrypted_payload = base64Payload
             )
@@ -315,6 +343,84 @@ class SupabaseSyncManager(
     }
 
     /**
+     * Descarga y desencripta las filas del usuario en la nube (solo formato
+     * con id natural; las legacy se ignoran). Núcleo compartido del espejo
+     * del partner y del merge de la hostess.
+     *
+     * Claves: se intenta con la passphrase de la DB (la que SIEMPRE usa el
+     * upload) y además con la de sync (la del código de invitación). La de
+     * sync puede ser obsoleta o pertenecer a otra cuenta en este mismo
+     * dispositivo (los QA comparten emulador); usarla en exclusiva dejaba a
+     * la hostess sin poder descifrar ni sus propias filas.
+     *
+     * Lanza excepción solo si hay filas con formato natural pero NINGUNA se
+     * puede descifrar con ninguna clave (passphrase obsoleta) para que la UI
+     * lo muestre. Las legacy filtradas no cuentan: su contenido ya vive en
+     * las filas nuevas tras el primer upload.
+     */
+    private suspend fun fetchDecryptCloudRows(
+        userId: String
+    ): Pair<List<CycleRecordEntity>, List<DailyLogEntity>> {
+        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+        val syncPassphrase = keystoreManager.getSyncPassphrase()
+        val keys = listOfNotNull(
+            Base64.encodeToString(dbPassphrase, Base64.NO_WRAP),
+            syncPassphrase
+                ?.takeIf { !it.contentEquals(dbPassphrase) }
+                ?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+        )
+
+        fun decryptRow(payloadB64: String): String? {
+            val encryptedBytes = try {
+                Base64.decode(payloadB64, Base64.NO_WRAP)
+            } catch (e: Exception) {
+                return null
+            }
+            for (key in keys) {
+                try {
+                    return CryptoUtils.decryptJson(encryptedBytes, key)
+                } catch (e: Exception) {
+                    // Probar con la siguiente clave.
+                }
+            }
+            return null
+        }
+
+        val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$userId")
+        val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
+        val naturalCycles = selectRowsForDownload(cyclesRows.toList())
+        val cycleEntities = naturalCycles.mapNotNull { row ->
+            try {
+                val plainJson = decryptRow(row.encrypted_payload) ?: return@mapNotNull null
+                gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = userId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        // Hay datos en la nube pero NINGUNO se puede descifrar: la passphrase del
+        // código de invitación es obsoleta (la anfitriona regeneró su clave). En vez
+        // de fallar en silencio, reportarlo para que sepa que debe regenerar el código.
+        if (naturalCycles.isNotEmpty() && cycleEntities.isEmpty()) {
+            throw Exception(
+                "No se pudieron descifrar los datos de la anfitriona. " +
+                    "Pídele que genere un nuevo código de invitación y vincúlate de nuevo."
+            )
+        }
+
+        val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$userId")
+        val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
+        val logEntities = selectRowsForDownload(logsRows.toList()).mapNotNull { row ->
+            try {
+                val plainJson = decryptRow(row.encrypted_payload) ?: return@mapNotNull null
+                gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = userId)
+            } catch (e: Exception) {
+                null
+            }
+        }
+        return cycleEntities to logEntities
+    }
+
+    /**
      * Descarga periódica y desencriptación para la base de datos de la pareja.
      */
     fun startPartnerSyncListener(partnerId: String, hostessId: String) {
@@ -327,7 +433,10 @@ class SupabaseSyncManager(
         partnerSyncJob = scope.launch {
             while (true) {
                 try {
-                    downloadHostessDataOnce(hostessId)
+                    // Bidireccional: también SUBE lo que el partner aprobó/registró
+                    // (antes solo descargaba; si la subida al escribir fallaba en
+                    // silencio, el cambio quedaba varado para siempre).
+                    syncNow(partnerId)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -342,47 +451,12 @@ class SupabaseSyncManager(
      * listener de 15s como `SyncWorker` (WorkManager, app cerrada).
      */
     private suspend fun downloadHostessDataOnce(hostessId: String) {
-        val syncPassphrase = keystoreManager.getSyncPassphrase()
-            ?: keystoreManager.getOrCreateDatabasePassphrase()
-        val decryptionKey = Base64.encodeToString(syncPassphrase, Base64.NO_WRAP)
-
-        val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$hostessId")
-        val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
-        val cycleEntities = cyclesRows.mapNotNull { row ->
-            try {
-                val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = hostessId)
-            } catch (e: Exception) {
-                null
-            }
-        }
-        // Hay datos en la nube pero NINGUNO se puede descifrar: la passphrase del
-        // código de invitación es obsoleta (la anfitriona regeneró su clave). En vez
-        // de fallar en silencio, reportarlo para que sepa que debe regenerar el código.
-        if (cyclesRows.isNotEmpty() && cycleEntities.isEmpty()) {
-            throw Exception(
-                "No se pudieron descifrar los datos de la anfitriona. " +
-                    "Pídele que genere un nuevo código de invitación y vincúlate de nuevo."
-            )
-        }
+        val (cycleEntities, logEntities) = fetchDecryptCloudRows(hostessId)
         if (cycleEntities.isNotEmpty()) {
             // Remapear ids a 0 (autoGenerate) para que NO colisionen con los
             // registros propios del partner (que también empiezan en id=1). Sin
             // esto, insertAll(REPLACE) sobrescribiría los datos del partner.
             cycleRecordDao.clearAndInsertCycles(hostessId, cycleEntities.map { it.copy(id = 0) })
-        }
-
-        val logsResponse = performRequest("GET", "daily_logs", queryParams = "user_id=eq.$hostessId")
-        val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
-        val logEntities = logsRows.mapNotNull { row ->
-            try {
-                val encryptedBytes = Base64.decode(row.encrypted_payload, Base64.NO_WRAP)
-                val plainJson = CryptoUtils.decryptJson(encryptedBytes, decryptionKey)
-                gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = hostessId)
-            } catch (e: Exception) {
-                null
-            }
         }
         if (logEntities.isNotEmpty()) {
             dailyLogDao.clearAndInsertLogs(hostessId, logEntities.map { it.copy(id = 0) })
@@ -407,29 +481,58 @@ suspend fun fetchCloudRole(userId: String): Pair<String, String?>? = withContext
 }
 
 /**
- * Refresco inmediato del partner: descarga los datos de la hostess ahora.
- * Lanza excepción si hay datos en la nube pero ninguno se puede descifrar
- * (passphrase obsoleta) para que la UI lo muestre.
+ * Fusiona en la DB de la hostess lo que el partner aprobó/registró.
+ * El partner escribe con el userId de la hostess (su vista es un espejo con
+ * ese namespace) y lo sube a la nube; aquí se integra sin duplicar: id=0 +
+ * INSERT OR REPLACE colapsa por el índice UNIQUE (user_id, fecha). A
+ * diferencia del espejo del partner NO se borra nada local (la hostess puede
+ * tener filas más nuevas aún no subidas; el orden upload-primero garantiza
+ * que la nube ya las contiene antes de fusionar).
  */
-suspend fun refreshPartnerData(hostessId: String) {
-    downloadHostessDataOnce(hostessId)
+private suspend fun mergeHostessDataOnce(hostessId: String) {
+    val (cycleEntities, logEntities) = fetchDecryptCloudRows(hostessId)
+    if (cycleEntities.isNotEmpty()) {
+        cycleRecordDao.insertAll(
+            cycleEntities
+                .filter { it.fechaInicioMenstruacion != null }
+                .map { it.copy(id = 0, userId = hostessId) }
+        )
+    }
+    if (logEntities.isNotEmpty()) {
+        dailyLogDao.insertAll(logEntities.map { it.copy(id = 0, userId = hostessId) })
+    }
+}
+
+/**
+ * Sync bidireccional completo y ESPERADO (suspend): primero SUBE lo local y
+ * después DESCARGA/fusiona según rol. Lo usan el gesto pull-to-refresh, el
+ * auto-refresh, los loops de 15s y el worker en segundo plano.
+ * - Partner con vínculo: sube sus aprobaciones + descarga el espejo.
+ * - Hostess con vínculo: sube lo suyo + fusiona lo aprobado por el partner.
+ * - Solo / sin vínculo: solo sube (comportamiento histórico).
+ * Si la subida falla (sin red), se aborta antes de descargar para no pisar
+ * nada local con datos viejos; el error se propaga para mostrarlo en UI.
+ */
+suspend fun syncNow(userId: String) {
+    if (userId.isEmpty()) return
+    syncHostessDataToCloudOnce(userId)
+    val prefs = userPreferencesDao.getByUserId(userId)
+    val linkedId = prefs?.linkedUserId
+    if (prefs?.userRole == "partner" && !linkedId.isNullOrEmpty()) {
+        downloadHostessDataOnce(linkedId)
+    } else if (!linkedId.isNullOrEmpty()) {
+        mergeHostessDataOnce(userId)
+    }
 }
 
 /**
  * Un ciclo de sync completo para un usuario, usado por `SyncWorker` (WorkManager)
  * para mantener los datos sincronizados aunque la app esté cerrada.
- * - Partner: descarga los datos de la hostess (vista solo lectura).
- * - Hostess/solo: sube todos sus datos locales a la nube.
+ * Bidireccional en ambos roles (ver `syncNow`).
  */
 suspend fun runSyncOnce(userId: String) {
-        val prefs = userPreferencesDao.getByUserId(userId) ?: return
-        val linkedId = prefs.linkedUserId
-        if (prefs.userRole == "partner" && !linkedId.isNullOrEmpty()) {
-            downloadHostessDataOnce(linkedId)
-        } else {
-            syncHostessDataToCloudOnce(userId)
-        }
-    }
+    syncNow(userId)
+}
 
     fun startHostessAutoSync(hostessId: String) {
         // Exclusión mutua: ver comentario en startPartnerSyncListener.
@@ -439,7 +542,9 @@ suspend fun runSyncOnce(userId: String) {
         hostessSyncJob = scope.launch {
             while (true) {
                 try {
-                    syncHostessDataToCloudOnce(hostessId)
+                    // Bidireccional: además de subir, fusiona lo que el partner
+                    // aprobó (periodos/síntomas) para verlo sin gesto manual.
+                    syncNow(hostessId)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }

@@ -100,21 +100,18 @@ class CalendarViewModel @Inject constructor(
 
     /**
      * Refresco manual (pull-to-refresh) o automático del calendario.
-     * - Partner: fuerza la descarga de los datos de la hostess.
-     * - Hostess/solo: fuerza la subida de sus datos locales.
-     * Después recarga el mes, la predicción y las sugerencias pendientes.
+     * Bidireccional y esperado: primero SUBE lo local y después DESCARGA según
+     * rol (partner: espejo de la hostess; hostess vinculada: fusiona lo que el
+     * partner aprobó). Antes cada rol hacía solo media dirección y la subida
+     * era fire-and-forget: si fallaba en silencio, el cambio quedaba varado
+     * hasta un gesto de suerte. Después recarga mes, predicción y sugerencias.
      */
     fun refresh(showFeedback: Boolean = true) {
         viewModelScope.launch {
             _uiState.update { it.copy(isRefreshing = true) }
             try {
                 val myUid = authRepository.currentUser.value?.uid ?: ""
-                val prefs = userPreferencesDao.getByUserId(myUid)
-                if (prefs?.userRole == "partner" && !prefs.linkedUserId.isNullOrEmpty()) {
-                    syncManager.refreshPartnerData(prefs.linkedUserId!!)
-                } else if (myUid.isNotEmpty()) {
-                    syncManager.syncHostessDataToCloud(myUid)
-                }
+                syncManager.syncNow(myUid)
                 loadCurrentMonth()
                 loadPrediction()
                 loadPendingSuggestions()
