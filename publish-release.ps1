@@ -50,7 +50,9 @@ $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 Write-Host "Compilando la aplicacion en modo Release..." -ForegroundColor Cyan
 
 # 3. Compilar APK con la nueva version
-./gradlew.bat assembleRelease
+# NOTA: :app:clean antes porque el dex incremental se corrompe entre
+# publicaciones (R8 falla con "is defined multiple times"). Tarda ~1 min extra.
+./gradlew.bat :app:clean :app:assembleRelease
 
 # 4. Crear directorio de release si no existe
 $releaseDir = Join-Path $PSScriptRoot "release"
