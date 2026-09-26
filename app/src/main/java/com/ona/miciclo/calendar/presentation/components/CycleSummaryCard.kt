@@ -89,6 +89,25 @@ fun CycleSummaryCard(
                 )
             }
 
+            // Ovulación estimada (antes solo vivía en el modelo)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Ovulación estimada",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    text = "🥚 ${prediction.diaOvulacion.format(dateFormatter)}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.tertiary
+                )
+            }
+
             // Mensaje y confianza
             Spacer(modifier = Modifier.height(12.dp))
             Text(

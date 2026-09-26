@@ -70,6 +70,15 @@ class ConversationalLogParserTest {
     }
 
     @Test
+    fun `sintomas premenstruales nuevos`() {
+        assertTrue(ConversationalLogParser.parse("estoy irritable").symptoms.contains("irritabilidad"))
+        assertTrue(ConversationalLogParser.parse("lloro por todo").symptoms.contains("llanto_facil"))
+        assertTrue(ConversationalLogParser.parse("con ansiedad").symptoms.contains("ansiedad"))
+        assertTrue(ConversationalLogParser.parse("estoy estreñida").symptoms.contains("estrenimiento"))
+        assertTrue(ConversationalLogParser.parse("tengo diarrea").symptoms.contains("diarrea"))
+    }
+
+    @Test
     fun `merge preserva y agrega`() {
         val existing = DailyLog(
             userId = "h",

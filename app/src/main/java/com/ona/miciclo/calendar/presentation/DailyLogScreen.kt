@@ -172,7 +172,8 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
         "calambres", "dolor_cabeza", "fatiga", "sensibilidad_pechos",
         "acne", "hinchazón", "cambios_humor", "dolor_espalda",
         "nauseas", "insomnio", "antojos", "dolor_articulaciones",
-        "ovulacion", "relaciones"
+        "ovulacion", "relaciones",
+        "irritabilidad", "llanto_facil", "ansiedad", "estrenimiento", "diarrea"
     )
 
     val symptomDisplayNames = mapOf(
@@ -189,7 +190,12 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
         "antojos" to "Antojos",
         "dolor_articulaciones" to "Dolor de articulaciones",
         "ovulacion" to "Ovulación",
-        "relaciones" to "Relaciones íntimas"
+        "relaciones" to "Relaciones íntimas",
+        "irritabilidad" to "Irritabilidad",
+        "llanto_facil" to "Llanto fácil",
+        "ansiedad" to "Ansiedad",
+        "estrenimiento" to "Estreñimiento",
+        "diarrea" to "Diarrea"
     )
 
     Scaffold(
@@ -215,7 +221,30 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
                 color = MaterialTheme.colorScheme.primary
             )
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Relevancia por fase: qué conviene registrar hoy va primero.
+            com.ona.miciclo.calendar.domain.model.LogRelevance.bannerFor(
+                uiState.selectedDayMoment
+            )?.let { banner ->
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer
+                    ),
+                    shape = MaterialTheme.shapes.medium,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = banner,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSecondaryContainer,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -346,7 +375,11 @@ var showDeletePeriodConfirm by rememberSaveable { mutableStateOf(false) }
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                availableSymptoms.forEach { symptom ->
+                val orderedSymptoms =
+                    com.ona.miciclo.calendar.domain.model.LogRelevance.orderedSymptoms(
+                        availableSymptoms, uiState.selectedDayMoment
+                    )
+                orderedSymptoms.forEach { symptom ->
                     val isSelected = symptom in selectedSymptoms
                     FilterChip(
                         selected = isSelected,

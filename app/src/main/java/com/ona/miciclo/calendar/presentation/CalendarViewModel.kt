@@ -170,6 +170,30 @@ class CalendarViewModel @Inject constructor(
         viewModelScope.launch {
             val cycleRecord = cycleRepository.getCycleRecordByDate(userId, date)
             _uiState.update { it.copy(isSelectedDatePeriodStart = cycleRecord != null) }
+            refreshSelectedMoment(date)
+        }
+    }
+
+    /**
+     * (Re)calcula el momento del ciclo de la fecha seleccionada para el
+     * registro diario (banner + orden de campos). Se llama al seleccionar
+     * fecha Y al cargar la predicción, en el orden que sea.
+     */
+    private suspend fun refreshSelectedMoment(
+        date: LocalDate? = _uiState.value.selectedDate
+    ) {
+        val target = date ?: return
+        try {
+            val latest = cycleRepository.getLatestCycleRecord(userId)
+            val moment = com.ona.miciclo.calendar.domain.model.LogRelevance.momentFor(
+                date = target,
+                prediction = _uiState.value.prediction,
+                cycleStart = latest?.fechaInicioMenstruacion,
+                bleedingDays = latest?.duracionSangrado ?: 5
+            )
+            _uiState.update { it.copy(selectedDayMoment = moment) }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
@@ -178,6 +202,9 @@ class CalendarViewModel @Inject constructor(
             try {
                 val prediction = calculateCyclePredictionUseCase(userId)
                 _uiState.update { it.copy(prediction = prediction) }
+                // Si ya había fecha seleccionada, (re)calcular su momento ahora
+                // que la predicción está disponible.
+                refreshSelectedMoment()
                 // Widget (A3): persistir snapshot para la pantalla principal.
                 try {
                     val todayLog = cycleRepository.getDailyLogByDate(
@@ -481,6 +508,9 @@ data class CalendarUiState(
     /** Última sincronización exitosa (nube). Null = aún no sincronizado. */
     val lastSyncTimeMillis: Long? = null,
     val isSelectedDatePeriodStart: Boolean = false,
+    /** Momento del ciclo de la fecha seleccionada (relevancia del registro). */
+    val selectedDayMoment: com.ona.miciclo.calendar.domain.model.LogRelevance.Moment =
+        com.ona.miciclo.calendar.domain.model.LogRelevance.Moment.UNKNOWN,
     val pendingSuggestion: SupabaseSyncManager.PartnerSuggestionRow? = null,
     /** Estado de la última sugerencia enviada por el partner (solo modo pareja). */
     val mySuggestionStatus: String? = null,

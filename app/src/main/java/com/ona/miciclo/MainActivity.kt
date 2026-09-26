@@ -166,6 +166,11 @@ fun OnaNavigation(
     val navController = rememberNavController()
     val authViewModel: AuthViewModel = hiltViewModel()
     val isAuthenticated = authViewModel.isAuthenticated
+    // Un SOLO CalendarViewModel compartido entre Calendario y Registro Diario:
+    // antes cada ruta creaba el suyo (estado como selectedDayMoment/mensajes
+    // no llegaba a la otra + doble polling de 60s/30s en segundo plano).
+    // Al pedirlo aquí, el owner es la Activity y ambas rutas ven lo mismo.
+    val calendarViewModel: CalendarViewModel = hiltViewModel()
 
     // Determinar destino inicial
     val startDestination: Any = if (isAuthenticated) Dashboard else Login
@@ -313,9 +318,8 @@ fun OnaNavigation(
             }
 
             composable<Calendar> {
-                val viewModel: CalendarViewModel = hiltViewModel()
                 CalendarScreen(
-                    viewModel = viewModel,
+                    viewModel = calendarViewModel,
                     onNavigateToDailyLog = { date ->
                         navController.navigate(DailyLogRoute(date = date))
                     }
@@ -324,9 +328,8 @@ fun OnaNavigation(
 
             composable<DailyLogRoute> { backStackEntry ->
                 val route = backStackEntry.toRoute<DailyLogRoute>()
-                val viewModel: CalendarViewModel = hiltViewModel()
                 DailyLogScreen(
-                    viewModel = viewModel,
+                    viewModel = calendarViewModel,
                     dateString = route.date,
                     onNavigateBack = { navController.popBackStack() }
                 )

@@ -85,6 +85,8 @@ object CycleInsightProvider {
         "cambios_humor" -> "cambios de humor"
         "dolor_espalda" -> "dolor de espalda"
         "dolor_articulaciones" -> "dolor de articulaciones"
+        "llanto_facil" -> "llanto fácil"
+        "estrenimiento" -> "estreñimiento"
         else -> key.replace('_', ' ')
     }
 }

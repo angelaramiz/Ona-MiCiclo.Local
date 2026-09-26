@@ -31,14 +31,19 @@ object ConversationalLogParser {
         Regex("cansanci|cansad|fatiga|agotad") to "fatiga",
         Regex("n[aá]usea|ganas de vomitar") to "nauseas",
         Regex("hincha") to "hinchazón",
-        Regex("humor|irritable|triste|ansios") to "cambios_humor",
+        Regex("humor|triste") to "cambios_humor",
         Regex("\\bpecho|\\bsensible") to "sensibilidad_pechos",
         Regex("acn|grano|espinilla") to "acne",
         Regex("antojo") to "antojos",
         Regex("insomnio|no dorm|desvel") to "insomnio",
         Regex("espalda") to "dolor_espalda",
         Regex("articulaci|rodilla|coyuntura") to "dolor_articulaciones",
-        Regex("ovul") to "ovulacion"
+        Regex("ovul") to "ovulacion",
+        Regex("irritable") to "irritabilidad",
+        Regex("llor|llanto|lagrima") to "llanto_facil",
+        Regex("ansi") to "ansiedad",
+        Regex("estreñ|estreni") to "estrenimiento",
+        Regex("diarrea") to "diarrea"
     )
 
     private val tempRegex = Regex("(\\d{2}[.,]\\d{1,2})")
@@ -109,6 +114,11 @@ object ConversationalLogParser {
         "antojos" -> "Antojos"
         "dolor_articulaciones" -> "Dolor de articulaciones"
         "ovulacion" -> "Ovulación"
+        "irritabilidad" -> "Irritabilidad"
+        "llanto_facil" -> "Llanto fácil"
+        "ansiedad" -> "Ansiedad"
+        "estrenimiento" -> "Estreñimiento"
+        "diarrea" -> "Diarrea"
         else -> key.replace('_', ' ')
     }
 
