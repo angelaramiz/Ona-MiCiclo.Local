@@ -180,8 +180,11 @@ class CalendarViewModel @Inject constructor(
                 _uiState.update { it.copy(prediction = prediction) }
                 // Widget (A3): persistir snapshot para la pantalla principal.
                 try {
+                    val todayLog = cycleRepository.getDailyLogByDate(
+                        userId, java.time.LocalDate.now()
+                    )
                     com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
-                        context, prediction, _uiState.value.isReadOnly
+                        context, prediction, _uiState.value.isReadOnly, todayLog
                     )
                 } catch (e: Exception) {
                     e.printStackTrace()

@@ -39,4 +39,24 @@
         android:textSize="13sp"
         android:textStyle="bold" />
 
+    <TextView
+        android:id="@+id/widget_pregnancy"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="Embarazo: —"
+        android:textColor="#555555"
+        android:textSize="12sp" />
+
+    <TextView
+        android:id="@+id/widget_notes"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:text="Sin registros hoy"
+        android:textColor="#555555"
+        android:textSize="12sp" />
+
 </LinearLayout>

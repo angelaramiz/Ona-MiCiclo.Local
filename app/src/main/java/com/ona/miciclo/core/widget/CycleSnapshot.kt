@@ -2,8 +2,11 @@ package com.ona.miciclo.core.widget
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.ona.miciclo.ai.domain.ConversationalLogParser
 import com.ona.miciclo.calendar.domain.model.CyclePhase
 import com.ona.miciclo.calendar.domain.model.CyclePrediction
+import com.ona.miciclo.calendar.domain.model.DailyLog
+import com.ona.miciclo.calendar.domain.model.FlowLevel
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
@@ -17,12 +20,21 @@ import java.time.temporal.ChronoUnit
 data class CycleSnapshot(
     val title: String,
     val subtitle: String,
-    val phase: String
+    val phase: String,
+    /** Probabilidad estimada de embarazo hoy ("Alta", "Baja"...). */
+    val pregnancy: String = "—",
+    /** Resumen del registro de hoy (síntomas, flujo, temp, nota). */
+    val notes: String = "Sin registros hoy"
 )
 
 object CycleSnapshotBuilder {
 
-    fun build(prediction: CyclePrediction?, today: LocalDate, isPartner: Boolean): CycleSnapshot {
+    fun build(
+        prediction: CyclePrediction?,
+        today: LocalDate,
+        isPartner: Boolean,
+        todayLog: DailyLog? = null
+    ): CycleSnapshot {
         if (prediction == null) {
             return CycleSnapshot(
                 title = "Ona",
@@ -54,7 +66,45 @@ object CycleSnapshotBuilder {
         } else {
             periodText
         }
-        return CycleSnapshot(title = title, subtitle = subtitle, phase = phaseText)
+        return CycleSnapshot(
+            title = title,
+            subtitle = subtitle,
+            phase = phaseText,
+            pregnancy = pregnancyChance(prediction, today),
+            notes = notesLine(todayLog)
+        )
+    }
+
+    /**
+     * Probabilidad estimada de embarazo hoy según la fase (método calendario).
+     * El día exacto de ovulación se marca como pico máximo.
+     */
+    fun pregnancyChance(prediction: CyclePrediction, today: LocalDate): String {
+        if (today == prediction.diaOvulacion) return "Muy alta"
+        return when (prediction.faseActual) {
+            CyclePhase.MENSTRUATION -> "Muy baja"
+            CyclePhase.FOLLICULAR -> "Baja"
+            CyclePhase.FERTILE -> "Alta"
+            CyclePhase.LUTEAL -> "Baja"
+            CyclePhase.UNKNOWN -> "—"
+        }
+    }
+
+    /** Una línea con lo registrado hoy: síntomas, flujo, temperatura y nota. */
+    fun notesLine(log: DailyLog?): String {
+        if (log == null) return "Sin registros hoy"
+        val parts = mutableListOf<String>()
+        if (log.sintomasBasicos.isNotEmpty()) {
+            parts += log.sintomasBasicos.joinToString(", ", transform = {
+                ConversationalLogParser.prettySymptom(it)
+            })
+        }
+        if (log.nivelFlujo != FlowLevel.NONE) parts += "Flujo ${log.nivelFlujo.displayName.lowercase()}"
+        log.temperaturaBasal?.let { parts += "$it°" }
+        log.notas?.takeIf { it.isNotBlank() }?.let { parts += it.trim() }
+        if (parts.isEmpty()) return "Sin registros hoy"
+        val line = parts.joinToString(" · ")
+        return if (line.length <= 80) line else line.take(77) + "..."
     }
 
     private fun shortMonth(m: Int): String = when (m) {
@@ -74,6 +124,8 @@ class WidgetSnapshotStore(context: Context) {
             .putString(KEY_TITLE, snapshot.title)
             .putString(KEY_SUBTITLE, snapshot.subtitle)
             .putString(KEY_PHASE, snapshot.phase)
+            .putString(KEY_PREGNANCY, snapshot.pregnancy)
+            .putString(KEY_NOTES, snapshot.notes)
             .putLong(KEY_UPDATED, System.currentTimeMillis())
             .apply()
     }
@@ -81,7 +133,9 @@ class WidgetSnapshotStore(context: Context) {
     fun load(): CycleSnapshot = CycleSnapshot(
         title = prefs.getString(KEY_TITLE, "Ona") ?: "Ona",
         subtitle = prefs.getString(KEY_SUBTITLE, "Abre la app") ?: "Abre la app",
-        phase = prefs.getString(KEY_PHASE, "Sin datos todavía") ?: "Sin datos todavía"
+        phase = prefs.getString(KEY_PHASE, "Sin datos todavía") ?: "Sin datos todavía",
+        pregnancy = prefs.getString(KEY_PREGNANCY, "—") ?: "—",
+        notes = prefs.getString(KEY_NOTES, "Sin registros hoy") ?: "Sin registros hoy"
     )
 
     companion object {
@@ -89,6 +143,8 @@ class WidgetSnapshotStore(context: Context) {
         const val KEY_TITLE = "w_title"
         const val KEY_SUBTITLE = "w_subtitle"
         const val KEY_PHASE = "w_phase"
+        const val KEY_PREGNANCY = "w_pregnancy"
+        const val KEY_NOTES = "w_notes"
         const val KEY_UPDATED = "w_updated"
     }
 }

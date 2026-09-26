@@ -27,7 +27,7 @@ class CycleSnapshotTest {
         duracionPromedio = avgLen,
         inicioVentanaFertil = fertileStart,
         finVentanaFertil = fertileEnd,
-        diaOvulacion = LocalDate.of(2026, 9, 24),
+        diaOvulacion = LocalDate.of(2026, 10, 9),
         faseActual = phase,
         diaDelCiclo = dayOfCycle,
         confianza = PredictionConfidence.LOW,
@@ -63,5 +63,74 @@ class CycleSnapshotTest {
             isPartner = false
         )
         assertTrue(s.subtitle.contains("mañana"))
+    }
+
+    // ── Widget ampliado: embarazo + notas ──
+
+    private fun log(
+        date: LocalDate,
+        symptoms: List<String> = emptyList(),
+        temp: Double? = null,
+        flow: com.ona.miciclo.calendar.domain.model.FlowLevel =
+            com.ona.miciclo.calendar.domain.model.FlowLevel.NONE,
+        notes: String? = null
+    ) = com.ona.miciclo.calendar.domain.model.DailyLog(
+        userId = "h",
+        fecha = date,
+        nivelFlujo = flow,
+        sintomasBasicos = symptoms,
+        temperaturaBasal = temp,
+        notas = notes
+    )
+
+    @Test
+    fun `probabilidad segun fase`() {
+        val cases = mapOf(
+            CyclePhase.MENSTRUATION to "Muy baja",
+            CyclePhase.FOLLICULAR to "Baja",
+            CyclePhase.FERTILE to "Alta",
+            CyclePhase.LUTEAL to "Baja",
+            CyclePhase.UNKNOWN to "—"
+        )
+        cases.forEach { (phase, expected) ->
+            val s = CycleSnapshotBuilder.build(prediction(phase = phase), today, false)
+            assertEquals(expected, s.pregnancy)
+        }
+    }
+
+    @Test
+    fun `dia de ovulacion es muy alta`() {
+        val ovDay = LocalDate.of(2026, 9, 24)
+        val p = prediction().copy(diaOvulacion = ovDay, faseActual = CyclePhase.FERTILE)
+        val s = CycleSnapshotBuilder.build(p, ovDay, false)
+        assertEquals("Muy alta", s.pregnancy)
+    }
+
+    @Test
+    fun `notas del dia con sintomas y temperatura`() {
+        val l = log(
+            today,
+            symptoms = listOf("calambres", "dolor_cabeza"),
+            temp = 36.6,
+            flow = com.ona.miciclo.calendar.domain.model.FlowLevel.LIGHT,
+            notes = "me siento mejor en la tarde"
+        )
+        val s = CycleSnapshotBuilder.build(prediction(), today, false, l)
+        assertTrue(s.notes.contains("Calambres"))
+        assertTrue(s.notes.contains("36.6"))
+        assertTrue(s.notes.contains("Ligero") || s.notes.contains("ligero"))
+    }
+
+    @Test
+    fun `sin log muestra sin registros`() {
+        val s = CycleSnapshotBuilder.build(prediction(), today, false, null)
+        assertTrue(s.notes.contains("Sin registros"))
+    }
+
+    @Test
+    fun `notas largas se truncan`() {
+        val l = log(today, notes = "x".repeat(200))
+        val s = CycleSnapshotBuilder.build(prediction(), today, false, l)
+        assertTrue(s.notes.length <= 85)
     }
 }

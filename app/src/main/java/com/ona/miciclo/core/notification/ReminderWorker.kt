@@ -52,8 +52,9 @@ class ReminderWorker(
             showAll(due, reminderPrefs)
             // Widget (A3): snapshot diario aunque no haya avisos.
             try {
+                val todayLog = cycleRepository.getDailyLogByDate(userId, LocalDate.now())
                 com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
-                    applicationContext, prediction, isPartner = false
+                    applicationContext, prediction, isPartner = false, todayLog = todayLog
                 )
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -91,8 +92,9 @@ class ReminderWorker(
         showAll(due, reminderPrefs)
         // Widget (A3): también en modo pareja, con etiqueta de pareja.
         try {
+            val todayLog = cycleRepository.getDailyLogByDate(hostessId, LocalDate.now())
             com.ona.miciclo.core.widget.OnaWidgetProvider.refresh(
-                applicationContext, prediction, isPartner = true
+                applicationContext, prediction, isPartner = true, todayLog = todayLog
             )
         } catch (e: Exception) {
             e.printStackTrace()

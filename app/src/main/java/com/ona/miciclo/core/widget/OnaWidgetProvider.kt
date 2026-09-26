@@ -43,13 +43,20 @@ class OnaWidgetProvider : AppWidgetProvider() {
                 setTextViewText(R.id.widget_title, snapshot.title)
                 setTextViewText(R.id.widget_subtitle, snapshot.subtitle)
                 setTextViewText(R.id.widget_phase, snapshot.phase)
+                setTextViewText(R.id.widget_pregnancy, "Embarazo: ${snapshot.pregnancy}")
+                setTextViewText(R.id.widget_notes, snapshot.notes)
                 setOnClickPendingIntent(R.id.widget_title, pending)
             }
         }
 
         /** Escribe el snapshot y pide actualización del widget. */
-        fun refresh(context: Context, prediction: CyclePrediction?, isPartner: Boolean) {
-            val snapshot = CycleSnapshotBuilder.build(prediction, LocalDate.now(), isPartner)
+        fun refresh(
+            context: Context,
+            prediction: CyclePrediction?,
+            isPartner: Boolean,
+            todayLog: com.ona.miciclo.calendar.domain.model.DailyLog? = null
+        ) {
+            val snapshot = CycleSnapshotBuilder.build(prediction, LocalDate.now(), isPartner, todayLog)
             WidgetSnapshotStore(context).save(snapshot)
             requestUpdate(context)
         }
