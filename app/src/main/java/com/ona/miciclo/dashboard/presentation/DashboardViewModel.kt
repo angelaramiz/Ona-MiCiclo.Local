@@ -193,7 +193,7 @@ class DashboardViewModel @Inject constructor(
     private fun pushNoteToWidget(notes: List<CoupleNote>) {
         val newest = notes.firstOrNull() ?: return
         val now = System.currentTimeMillis()
-        val saved = NotaWidgetStore(appContext).saveLatestIfNewer(
+        val saved = NotaWidgetStore(appContext).saveLatest(
             NotaWidgetData(
                 senderLabel = CoupleNotes.senderLabel(newest.isMine),
                 text = newest.text,

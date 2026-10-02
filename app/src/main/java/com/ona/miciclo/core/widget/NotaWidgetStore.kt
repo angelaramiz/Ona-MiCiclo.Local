@@ -22,16 +22,22 @@ class NotaWidgetStore(context: Context) {
     private val prefs: SharedPreferences =
         context.getSharedPreferences(FILE, Context.MODE_PRIVATE)
 
-    /** Guarda solo si es más nueva que la actual (evita parpadeos). */
-    fun saveLatestIfNewer(data: NotaWidgetData): Boolean {
-        if (data.createdAt <= prefs.getLong(KEY_CREATED, 0L)) return false
+    /**
+     * Guarda la más reciente. La etiqueta ("Tú"/"Tu pareja") y el "hace X" son
+     * relativos al visor y al momento: se reescriben siempre, pero solo se
+     * pide re-render al widget si algo visible cambió (evita parpadeos).
+     */
+    fun saveLatest(data: NotaWidgetData): Boolean {
+        val changed = data.senderLabel != prefs.getString(KEY_SENDER, "") ||
+            data.text != prefs.getString(KEY_TEXT, null) ||
+            data.timeAgo != prefs.getString(KEY_TIME, "")
         prefs.edit()
             .putString(KEY_SENDER, data.senderLabel)
             .putString(KEY_TEXT, data.text)
             .putString(KEY_TIME, data.timeAgo)
             .putLong(KEY_CREATED, data.createdAt)
             .apply()
-        return true
+        return changed
     }
 
     fun load(): NotaWidgetData = NotaWidgetData(
