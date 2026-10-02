@@ -86,6 +86,19 @@
                 android:resource="@xml/ona_widget_info" />
         </receiver>
 
+        <!-- Widget post-it en pareja: última notita -->
+        <receiver
+            android:name=".core.widget.NotaWidgetProvider"
+            android:exported="false"
+            android:label="Ona Notita">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/nota_widget_info" />
+        </receiver>
+
     </application>
 
 </manifest>

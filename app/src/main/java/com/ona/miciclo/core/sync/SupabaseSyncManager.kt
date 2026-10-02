@@ -13,6 +13,7 @@ import com.ona.miciclo.data.local.dao.UserPreferencesDao
 import com.ona.miciclo.data.local.entity.CycleRecordEntity
 import com.ona.miciclo.data.local.entity.DailyLogEntity
 import com.ona.miciclo.data.local.entity.UserPreferencesEntity
+import com.ona.miciclo.calendar.domain.model.CoupleNote
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -343,6 +344,39 @@ class SupabaseSyncManager(
     }
 
     /**
+     * Claves de descifrado: la de la DB (la que SIEMPRE usa el upload) más la
+     * de sync (código de invitación) si difiere. Extraído para reutilizar en
+     * notitas sin duplicar la lógica.
+     */
+    private fun syncKeys(): List<String> {
+        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+        val syncPassphrase = keystoreManager.getSyncPassphrase()
+        return listOfNotNull(
+            Base64.encodeToString(dbPassphrase, Base64.NO_WRAP),
+            syncPassphrase
+                ?.takeIf { !it.contentEquals(dbPassphrase) }
+                ?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
+        )
+    }
+
+    /** Descifra probando cada clave; null si ninguna sirve. */
+    private fun decryptWithAnyKey(payloadB64: String, keys: List<String>): String? {
+        val encryptedBytes = try {
+            Base64.decode(payloadB64, Base64.NO_WRAP)
+        } catch (e: Exception) {
+            return null
+        }
+        for (key in keys) {
+            try {
+                return CryptoUtils.decryptJson(encryptedBytes, key)
+            } catch (e: Exception) {
+                // Probar con la siguiente clave.
+            }
+        }
+        return null
+    }
+
+    /**
      * Descarga y desencripta las filas del usuario en la nube (solo formato
      * con id natural; las legacy se ignoran). Núcleo compartido del espejo
      * del partner y del merge de la hostess.
@@ -361,37 +395,14 @@ class SupabaseSyncManager(
     private suspend fun fetchDecryptCloudRows(
         userId: String
     ): Pair<List<CycleRecordEntity>, List<DailyLogEntity>> {
-        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
-        val syncPassphrase = keystoreManager.getSyncPassphrase()
-        val keys = listOfNotNull(
-            Base64.encodeToString(dbPassphrase, Base64.NO_WRAP),
-            syncPassphrase
-                ?.takeIf { !it.contentEquals(dbPassphrase) }
-                ?.let { Base64.encodeToString(it, Base64.NO_WRAP) }
-        )
-
-        fun decryptRow(payloadB64: String): String? {
-            val encryptedBytes = try {
-                Base64.decode(payloadB64, Base64.NO_WRAP)
-            } catch (e: Exception) {
-                return null
-            }
-            for (key in keys) {
-                try {
-                    return CryptoUtils.decryptJson(encryptedBytes, key)
-                } catch (e: Exception) {
-                    // Probar con la siguiente clave.
-                }
-            }
-            return null
-        }
+        val keys = syncKeys()
 
         val cyclesResponse = performRequest("GET", "cycles", queryParams = "user_id=eq.$userId")
         val cyclesRows = gson.fromJson(cyclesResponse, Array<EncryptedPayloadRow>::class.java)
         val naturalCycles = selectRowsForDownload(cyclesRows.toList())
         val cycleEntities = naturalCycles.mapNotNull { row ->
             try {
-                val plainJson = decryptRow(row.encrypted_payload) ?: return@mapNotNull null
+                val plainJson = decryptWithAnyKey(row.encrypted_payload, keys) ?: return@mapNotNull null
                 gson.fromJson(plainJson, CycleRecordEntity::class.java).copy(userId = userId)
             } catch (e: Exception) {
                 null
@@ -411,7 +422,7 @@ class SupabaseSyncManager(
         val logsRows = gson.fromJson(logsResponse, Array<EncryptedPayloadRow>::class.java)
         val logEntities = selectRowsForDownload(logsRows.toList()).mapNotNull { row ->
             try {
-                val plainJson = decryptRow(row.encrypted_payload) ?: return@mapNotNull null
+                val plainJson = decryptWithAnyKey(row.encrypted_payload, keys) ?: return@mapNotNull null
                 gson.fromJson(plainJson, DailyLogEntity::class.java).copy(userId = userId)
             } catch (e: Exception) {
                 null
@@ -615,6 +626,85 @@ suspend fun runSyncOnce(userId: String) {
             table = "partner_suggestions",
             body = body,
             queryParams = "id=eq.$suggestionId"
+        )
+    }
+
+    // ── Notitas post-it en pareja ──
+
+    data class CoupleNoteRow(
+        val id: String? = null,
+        val hostess_id: String,
+        val partner_id: String,
+        val sender_id: String,
+        val encrypted_text: String,
+        val created_at: Long = System.currentTimeMillis()
+    )
+
+    /**
+     * Envía una notita a la pareja. El texto se cifra en el dispositivo con
+     * la misma clave del resto del sync (zero-knowledge: la nube solo ve
+     * bytes). Requiere la tabla `couple_notes` (ver SQL de instalación).
+     */
+    suspend fun sendCoupleNote(
+        hostessId: String,
+        partnerId: String,
+        senderId: String,
+        plainText: String
+    ) = withContext(Dispatchers.IO) {
+        val text = plainText.trim()
+        require(text.isNotEmpty()) { "La notita está vacía." }
+        require(text.length <= com.ona.miciclo.calendar.domain.model.CoupleNotes.MAX_LEN) {
+            "La notita es muy larga (máx. ${com.ona.miciclo.calendar.domain.model.CoupleNotes.MAX_LEN})."
+        }
+        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+        val encryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
+        val encryptedBytes = CryptoUtils.encryptJson(text, encryptionKey)
+        val row = CoupleNoteRow(
+            hostess_id = hostessId,
+            partner_id = partnerId,
+            sender_id = senderId,
+            encrypted_text = Base64.encodeToString(encryptedBytes, Base64.NO_WRAP)
+        )
+        performRequest("POST", "couple_notes", gson.toJson(row))
+    }
+
+    /**
+     * Últimas notitas del vínculo, ya descifradas (las ilegibles se omiten).
+     * Orden: más recientes primero.
+     */
+    suspend fun getCoupleNotes(
+        hostessId: String,
+        myUid: String,
+        limit: Int = 20
+    ): List<CoupleNote> = withContext(Dispatchers.IO) {
+        val response = performRequest(
+            method = "GET",
+            table = "couple_notes",
+            queryParams = "hostess_id=eq.$hostessId&order=created_at.desc&limit=$limit"
+        )
+        val keys = syncKeys()
+        gson.fromJson(response, Array<CoupleNoteRow>::class.java).mapNotNull { row ->
+            try {
+                val text = decryptWithAnyKey(row.encrypted_text, keys) ?: return@mapNotNull null
+                CoupleNote(
+                    id = row.id.orEmpty(),
+                    senderId = row.sender_id,
+                    text = text,
+                    createdAtMillis = row.created_at,
+                    isMine = row.sender_id == myUid
+                )
+            } catch (e: Exception) {
+                null
+            }
+        }
+    }
+
+    /** Borra una notita propia por id. */
+    suspend fun deleteCoupleNote(noteId: String) = withContext(Dispatchers.IO) {
+        performRequest(
+            method = "DELETE",
+            table = "couple_notes",
+            queryParams = "id=eq.$noteId"
         )
     }
 }

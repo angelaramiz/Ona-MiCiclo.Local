@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import com.ona.miciclo.calendar.presentation.components.CycleSummaryCard
 import com.ona.miciclo.core.ui.components.OnaButton
 import com.ona.miciclo.core.ui.components.OnaTopBar
+import com.ona.miciclo.dashboard.presentation.components.CoupleNotesCard
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -167,6 +168,20 @@ fun DashboardScreen(
                     text = err,
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error
+                )
+            }
+
+            // Notitas post-it en pareja (solo con vínculo).
+            if (uiState.linkedUserId != null) {
+                Spacer(modifier = Modifier.height(16.dp))
+                CoupleNotesCard(
+                    notes = uiState.notes,
+                    draft = uiState.noteDraft,
+                    sending = uiState.noteSending,
+                    notesError = uiState.notesError,
+                    onDraftChange = { viewModel.onNoteDraftChange(it) },
+                    onSend = { viewModel.sendNote(uiState.noteDraft) },
+                    onDelete = { viewModel.deleteNote(it) }
                 )
             }
 
