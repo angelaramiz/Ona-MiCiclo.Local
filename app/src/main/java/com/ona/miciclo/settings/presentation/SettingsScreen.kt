@@ -804,8 +804,18 @@ fun SettingsScreen(
         }
     }
 
-    // Diálogo de confirmación de borrado
+    // Diálogo de confirmación de borrado (con cuenta regresiva anti-accidentes)
     if (showDeleteDialog) {
+        // La cuenta vive mientras el diálogo está abierto; al cerrarse el
+        // LaunchedEffect se cancela solo. Al reabrir empieza de nuevo en 5.
+        var secondsLeft by rememberSaveable { mutableStateOf(DELETE_CONFIRM_SECONDS) }
+        LaunchedEffect(Unit) {
+            secondsLeft = DELETE_CONFIRM_SECONDS
+            while (secondsLeft > 0) {
+                kotlinx.coroutines.delay(1_000)
+                secondsLeft--
+            }
+        }
         AlertDialog(
             onDismissRequest = { showDeleteDialog = false },
             title = { Text("¿Eliminar todos los datos?") },
@@ -818,12 +828,13 @@ fun SettingsScreen(
             },
             confirmButton = {
                 TextButton(
+                    enabled = secondsLeft <= 0,
                     onClick = {
                         viewModel.deleteAllData()
                         showDeleteDialog = false
                     }
                 ) {
-                    Text("Eliminar todo", color = MaterialTheme.colorScheme.error)
+                    Text(deleteConfirmLabel(secondsLeft), color = MaterialTheme.colorScheme.error)
                 }
             },
             dismissButton = {
@@ -958,3 +969,12 @@ fun SettingsScreen(
         )
     }
 }
+
+/** Segundos de espera antes de permitir el borrado total (anti-accidentes). */
+internal const val DELETE_CONFIRM_SECONDS = 5
+
+/**
+ * Etiqueta del botón de borrado según la cuenta regresiva. Pura (testeable).
+ */
+internal fun deleteConfirmLabel(secondsLeft: Int): String =
+    if (secondsLeft > 0) "Eliminar todo ($secondsLeft)" else "Eliminar todo"
