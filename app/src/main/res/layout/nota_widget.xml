@@ -3,10 +3,10 @@
     android:id="@+id/nota_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#FFF9C4"
+    android:background="@drawable/widget_nota_bg"
     android:gravity="center_vertical"
     android:orientation="vertical"
-    android:padding="12dp">
+    android:padding="14dp">
 
     <TextView
         android:id="@+id/nota_widget_sender"
@@ -14,8 +14,8 @@
         android:layout_height="wrap_content"
         android:ellipsize="end"
         android:maxLines="1"
-        android:text="📌 Notitas"
-        android:textColor="#6D4C41"
+        android:text="🌸 Notitas"
+        android:textColor="#832248"
         android:textSize="13sp"
         android:textStyle="bold" />
 
@@ -23,21 +23,42 @@
         android:id="@+id/nota_widget_text"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:layout_marginTop="2dp"
         android:ellipsize="end"
         android:maxLines="4"
         android:text="Aún no hay notitas 💛"
-        android:textColor="#4E342E"
-        android:textSize="15sp" />
+        android:textColor="#4E0F28"
+        android:textSize="16sp"
+        android:textStyle="italic" />
 
-    <TextView
-        android:id="@+id/nota_widget_time"
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:gravity="end"
-        android:maxLines="1"
-        android:text=""
-        android:textColor="#8D6E63"
-        android:textSize="11sp" />
+        android:layout_marginTop="4dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="Ona Mi Ciclo"
+            android:textColor="#A64D6E"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/nota_widget_time"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text=""
+            android:textColor="#A64D6E"
+            android:textSize="11sp" />
+
+    </LinearLayout>
 
 </LinearLayout>

@@ -40,9 +40,9 @@ class NotaWidgetProvider : AppWidgetProvider() {
             )
             return RemoteViews(context.packageName, R.layout.nota_widget).apply {
                 val header = if (data.senderLabel.isEmpty()) {
-                    "📌 Notitas"
+                    "🌸 Notitas"
                 } else {
-                    "📌 ${data.senderLabel}"
+                    "🌸 ${data.senderLabel}"
                 }
                 setTextViewText(R.id.nota_widget_sender, header)
                 setTextViewText(R.id.nota_widget_text, data.text)
