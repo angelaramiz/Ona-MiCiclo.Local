@@ -53,7 +53,22 @@ class DashboardViewModel @Inject constructor(
             val myUid = authRepository.currentUser.value?.uid.orEmpty()
             val prefs = userPreferencesDao.getByUserId(myUid)
             val isPartner = prefs?.userRole == "partner"
-            val linkedUserId = prefs?.linkedUserId
+            var linkedUserId = prefs?.linkedUserId
+            if (!isPartner && linkedUserId.isNullOrEmpty() && myUid.isNotEmpty()) {
+                // La hostess genera el código ANTES de que exista el partner, así que su
+                // linkedUserId local nunca se rellena al vincular (solo el partner guarda
+                // el vínculo localmente). Sin esto la tarjeta de notitas jamás le aparece.
+                // linkPartnerWithCode ya deja el vínculo en la nube (users.linked_user_id),
+                // así que se resuelve desde ahí y se persiste localmente.
+                val cloudLinked = runCatching { syncManager.fetchCloudRole(myUid)?.second }.getOrNull()
+                if (!cloudLinked.isNullOrEmpty()) {
+                    linkedUserId = cloudLinked
+                    runCatching {
+                        val cur = userPreferencesDao.getByUserId(myUid)
+                        if (cur != null) userPreferencesDao.insertOrUpdate(cur.copy(linkedUserId = cloudLinked))
+                    }
+                }
+            }
 
             activeUserId = if (isPartner && !linkedUserId.isNullOrEmpty()) linkedUserId else myUid
 
