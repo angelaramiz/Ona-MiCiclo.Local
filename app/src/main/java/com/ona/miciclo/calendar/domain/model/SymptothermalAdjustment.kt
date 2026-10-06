@@ -25,6 +25,15 @@ object SymptothermalAdjustment {
     private const val MIN_LUTEAL_DAYS = 10
     private const val TEMP_SHIFT_DELTA = 0.2
 
+    /**
+     * Cola peligrosa tras la ovulación: 36 h. El óvulo vive 12-24 h, pero como
+     * la hora exacta de ovulación ese día se desconoce, a granularidad de día
+     * se marcan completos los 2 días siguientes: T+36h siempre cae dentro de
+     * ovulación..ovulación+2, sea cual sea la hora T. Margen conservador.
+     */
+    const val FERTILE_TAIL_HOURS_AFTER_OVULATION = 36
+    const val FERTILE_TAIL_DAYS_AFTER_OVULATION = 2
+
     private val dateFmt = DateTimeFormatter.ofPattern("d 'de' MMMM", Locale("es"))
 
     data class Result(
@@ -44,7 +53,7 @@ object SymptothermalAdjustment {
         val unchanged = Result(
             ovulationDate = calendarOvulation,
             fertileStart = calendarOvulation.minusDays(5),
-            fertileEnd = calendarOvulation.plusDays(1),
+            fertileEnd = calendarOvulation.plusDays(FERTILE_TAIL_DAYS_AFTER_OVULATION.toLong()),
             evidence = emptyList()
         )
         val minDate = cycleStart.plusDays((MIN_OVULATION_DAY - 1).toLong())
@@ -93,7 +102,7 @@ object SymptothermalAdjustment {
     private fun buildResult(ovulation: LocalDate, evidence: List<String>): Result = Result(
         ovulationDate = ovulation,
         fertileStart = ovulation.minusDays(5),
-        fertileEnd = ovulation.plusDays(1),
+        fertileEnd = ovulation.plusDays(FERTILE_TAIL_DAYS_AFTER_OVULATION.toLong()),
         evidence = evidence
     )
 

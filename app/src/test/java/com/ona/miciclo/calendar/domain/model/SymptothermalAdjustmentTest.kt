@@ -42,8 +42,20 @@ class SymptothermalAdjustmentTest {
         val r = adjust(emptyList())
         assertEquals(calendarOvulation, r.ovulationDate)
         assertEquals(calendarOvulation.minusDays(5), r.fertileStart)
-        assertEquals(calendarOvulation.plusDays(1), r.fertileEnd)
+        assertEquals(calendarOvulation.plusDays(2), r.fertileEnd)
         assertTrue(r.evidence.isEmpty())
+    }
+
+    @Test
+    fun `cola peligrosa de 36h tras la ovulacion`() {
+        // T+36h siempre cae dentro de ovulación..ovulación+2 sea cual sea la hora
+        // de ovulación ese día, así que a granularidad de día se marcan 2 días.
+        val r = adjust(emptyList())
+        assertEquals(36, SymptothermalAdjustment.FERTILE_TAIL_HOURS_AFTER_OVULATION)
+        assertEquals(
+            r.ovulationDate.plusDays(SymptothermalAdjustment.FERTILE_TAIL_DAYS_AFTER_OVULATION.toLong()),
+            r.fertileEnd
+        )
     }
 
     @Test
@@ -51,7 +63,7 @@ class SymptothermalAdjustmentTest {
         val r = adjust(listOf(log(LocalDate.of(2026, 10, 12), symptoms = listOf("calambres", "ovulacion"))))
         assertEquals(LocalDate.of(2026, 10, 12), r.ovulationDate)
         assertEquals(LocalDate.of(2026, 10, 7), r.fertileStart)
-        assertEquals(LocalDate.of(2026, 10, 13), r.fertileEnd)
+        assertEquals(LocalDate.of(2026, 10, 14), r.fertileEnd)
         assertTrue(r.evidence.any { it.contains("12 de octubre") })
     }
 

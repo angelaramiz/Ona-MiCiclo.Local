@@ -8,8 +8,6 @@ import com.ona.miciclo.calendar.domain.repository.CycleRepository
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import javax.inject.Inject
-import kotlin.math.roundToInt
-import kotlin.math.sqrt
 
 /**
  * LÓGICA DE CÁLCULO DE CICLO — FASE 1
@@ -39,26 +37,20 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         /** Duración estándar cuando no hay datos suficientes */
         const val DEFAULT_CYCLE_LENGTH = 28
 
-        /** Mínimo de ciclos necesarios para usar promedios reales */
-        const val MIN_CYCLES_FOR_AVERAGE = 3
-
-        /** Umbral de desviación estándar para activar modo conservador */
-        const val CONSERVATIVE_STD_DEV_THRESHOLD = 5.0
-
         /**
-         * REGLA BÁSICA DE VENTANA FÉRTIL (método del calendario):
-         * La ovulación típicamente ocurre ~14 días antes del siguiente periodo.
-         * La ventana fértil se estima 5 días antes y 1 día después de la ovulación.
-         * 
+         * REGLA DE VENTANA FÉRTIL (método del calendario, dinámica por duración):
+         * la ovulación se estima ~14 días ANTES del siguiente periodo
+         * (la fase lútea es casi constante; lo que varía es la folicular).
+         * Ventana: 5 días antes de ovular + cola peligrosa de 36 h después
+         * ([SymptothermalAdjustment.FERTILE_TAIL_DAYS_AFTER_OVULATION]).
+         *
          * Para un ciclo de 28 días:
          * - Ovulación estimada: día 14
-         * - Ventana fértil: días 10-16
+         * - Ventana fértil: días 9-16
          *
          * NOTA: Esta es una aproximación. El método del calendario tiene una tasa
          * de fallo del ~12-25% como anticonceptivo. Esto DEBE comunicarse claramente.
          */
-        const val FERTILE_WINDOW_START_OFFSET = 10 // Día del ciclo donde comienza la ventana
-        const val FERTILE_WINDOW_END_OFFSET = 16   // Día del ciclo donde termina la ventana
     }
 
     /**
@@ -83,11 +75,12 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         }
 
         val latestRecord = validRecords.first()
-        val lastRecords = validRecords.take(MIN_CYCLES_FOR_AVERAGE)
         val today = LocalDate.now()
 
         // ── Paso 1: Determinar duración del ciclo ──
-        val (cycleLength, confidence) = calculateCycleLength(lastRecords, defaultCycleLength)
+        // Se pasa todo el historial válido: el estimador usa hasta los últimos
+        // 6 ciclos y se reajusta con cada registro nuevo.
+        val (cycleLength, confidence) = calculateCycleLength(validRecords, defaultCycleLength)
 
         // ── Paso 2: Calcular día actual del ciclo ──
         val dayOfCycle = ChronoUnit.DAYS.between(latestRecord.fechaInicioMenstruacion, today).toInt() + 1
@@ -99,7 +92,11 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         // La ovulación se estima ~14 días ANTES del siguiente periodo
         val estimatedOvulation = nextPeriodStart.minusDays(14)
         val fertileStart = estimatedOvulation.minusDays(5) // 5 días antes de ovulación
-        val fertileEnd = estimatedOvulation.plusDays(1)     // 1 día después de ovulación
+        // Cola peligrosa de 36 h tras ovular (días completos a granularidad de día)
+        val fertileEnd = estimatedOvulation.plusDays(
+            com.ona.miciclo.calendar.domain.model.SymptothermalAdjustment
+                .FERTILE_TAIL_DAYS_AFTER_OVULATION.toLong()
+        )
 
         // ── Paso 5: Determinar fase actual ──
         val currentPhase = determinePhase(
@@ -167,43 +164,19 @@ class CalculateCyclePredictionUseCase @Inject constructor(
     }
 
     /**
-     * Calcula la duración del ciclo basándose en registros históricos.
-     *
-     * LÓGICA:
-     * - < 3 registros: usa default (28 días o configurado por la usuaria)
-     * - ≥ 3 registros: promedio de los últimos 3 ciclos
-     * - Si la varianza es alta (σ > 5 días): marca confianza MEDIUM
+     * Duración del ciclo recalibrada con cada registro (promedio móvil de hasta
+     * los últimos 6 ciclos válidos vía [CycleLengthEstimator]).
      */
     private fun calculateCycleLength(
         records: List<CycleRecord>,
         defaultLength: Int
     ): Pair<Int, PredictionConfidence> {
-        if (records.size < MIN_CYCLES_FOR_AVERAGE) {
-            // No hay suficientes datos — usar default con confianza baja
-            return Pair(defaultLength, PredictionConfidence.LOW)
-        }
-
-        // Calcular duraciones reales entre ciclos consecutivos
-        val durations = records.zipWithNext { newer, older ->
-            // Los registros vienen ordenados DESC, así que newer.fecha > older.fecha
-            ChronoUnit.DAYS.between(older.fechaInicioMenstruacion, newer.fechaInicioMenstruacion).toInt()
-        }.filter { it in 21..45 } // Filtrar duraciones fisiológicamente plausibles
-
-        if (durations.isEmpty()) {
-            return Pair(defaultLength, PredictionConfidence.LOW)
-        }
-
-        val average = durations.average().roundToInt()
-
-        // Calcular desviación estándar para evaluar regularidad
-        val stdDev = calculateStdDev(durations)
-
-        val confidence = when {
-            stdDev > CONSERVATIVE_STD_DEV_THRESHOLD -> PredictionConfidence.MEDIUM
-            else -> PredictionConfidence.HIGH
-        }
-
-        return Pair(average, confidence)
+        val starts = records.mapNotNull { it.fechaInicioMenstruacion }
+        val estimate = com.ona.miciclo.calendar.domain.model.CycleLengthEstimator.estimate(
+            starts,
+            defaultLength
+        )
+        return estimate.length to estimate.confidence
     }
 
     /**
@@ -252,15 +225,5 @@ class CalculateCyclePredictionUseCase @Inject constructor(
         }
 
         return "$phaseMessage$confidenceNote"
-    }
-
-    /**
-     * Calcula la desviación estándar de una lista de valores.
-     */
-    private fun calculateStdDev(values: List<Int>): Double {
-        if (values.size < 2) return 0.0
-        val mean = values.average()
-        val variance = values.map { (it - mean) * (it - mean) }.average()
-        return sqrt(variance)
     }
 }
