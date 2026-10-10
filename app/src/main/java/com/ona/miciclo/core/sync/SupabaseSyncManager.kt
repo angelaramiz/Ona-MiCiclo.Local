@@ -171,6 +171,12 @@ class SupabaseSyncManager(
         val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
         val dbPassphraseHex = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
 
+        // 1b. Fijarla como clave COMPARTIDA del vínculo: el partner la recibe
+        // al vincularse y ambos cifran las notitas con ella (ver
+        // noteEncryptionKey). Sin esto, cada lado usaría su clave local y el
+        // otro no podría leer en teléfonos distintos.
+        keystoreManager.saveSyncPassphrase(dbPassphrase)
+
         // 2. Cifrar la DB Passphrase usando el código de invitación como contraseña
         // CryptoUtils genera un Salt aleatorio de 16 bytes y un IV de 12 bytes internamente
         val encryptedBytes = CryptoUtils.encryptJson(dbPassphraseHex, code)
@@ -641,6 +647,19 @@ suspend fun runSyncOnce(userId: String) {
     )
 
     /**
+     * Clave de cifrado para notitas: la COMPARTIDA del vínculo (sync), NO la
+     * local del dispositivo. Cada teléfono genera su propia clave local de DB;
+     * si el partner cifrara con la suya, la hostess jamás podría leer (ella
+     * solo prueba [local, sync] y la local del partner no está entre ellas).
+     * En un mismo dispositivo el bug es invisible porque la clave local es la
+     * misma para ambas cuentas; en dos teléfonos reales rompe partner→hostess.
+     */
+    private fun noteEncryptionKey(): ByteArray {
+        return keystoreManager.getSyncPassphrase()
+            ?: keystoreManager.getOrCreateDatabasePassphrase()
+    }
+
+    /**
      * Envía una notita a la pareja. El texto se cifra en el dispositivo con
      * la misma clave del resto del sync (zero-knowledge: la nube solo ve
      * bytes). Requiere la tabla `couple_notes` (ver SQL de instalación).
@@ -656,7 +675,7 @@ suspend fun runSyncOnce(userId: String) {
         require(text.length <= com.ona.miciclo.calendar.domain.model.CoupleNotes.MAX_LEN) {
             "La notita es muy larga (máx. ${com.ona.miciclo.calendar.domain.model.CoupleNotes.MAX_LEN})."
         }
-        val dbPassphrase = keystoreManager.getOrCreateDatabasePassphrase()
+        val dbPassphrase = noteEncryptionKey()
         val encryptionKey = Base64.encodeToString(dbPassphrase, Base64.NO_WRAP)
         val encryptedBytes = CryptoUtils.encryptJson(text, encryptionKey)
         val row = CoupleNoteRow(
